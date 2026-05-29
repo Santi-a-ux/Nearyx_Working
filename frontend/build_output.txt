@@ -1,0 +1,54 @@
+
+> frontend@0.1.0 build
+> next build
+
+ÔÜá Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of C:\Users\user\package-lock.json as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * C:\Users\user\Desktop\tutoring-platform\frontend\package-lock.json
+
+Ôû▓ Next.js 16.2.4 (Turbopack)
+- Environments: .env.local
+
+ÔÜá The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+Ô£ô Compiled successfully in 3.7s
+  Running TypeScript ...
+  Finished TypeScript in 2.6s ...
+  Collecting page data using 11 workers ...
+  Generating static pages using 11 workers (0/19) ...
+  Generating static pages using 11 workers (4/19) 
+  Generating static pages using 11 workers (9/19) 
+  Generating static pages using 11 workers (14/19) 
+Ô£ô Generating static pages using 11 workers (19/19) in 16.3s
+  Finalizing page optimization ...
+
+Route (app)
+Ôöî ãÆ /
+Ôö£ Ôùï /_not-found
+Ôö£ ãÆ /api/auth/ws-token
+Ôö£ ãÆ /api/chat/conversation
+Ôö£ ãÆ /api/chat/conversations
+Ôö£ ãÆ /api/chat/messages/[conversationId]
+Ôö£ ãÆ /api/feed/posts
+Ôö£ ãÆ /api/media/upload
+Ôö£ ãÆ /api/session
+Ôö£ ãÆ /api/tutors/profiles
+Ôö£ ãÆ /api/users/profiles
+Ôö£ ãÆ /dashboard
+Ôö£ ãÆ /explore
+Ôö£ Ôùï /login
+Ôö£ ãÆ /messages
+Ôö£ ãÆ /profile/[id]
+Ôö£ ãÆ /profile/me
+Ôö£ Ôùï /register
+Ôöö ãÆ /tutor/onboarding
+
+
+ãÆ Proxy (Middleware)
+
+Ôùï  (Static)   prerendered as static content
+ãÆ  (Dynamic)  server-rendered on demand
+
