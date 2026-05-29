@@ -1,6 +1,4 @@
 # ─── ENTORNO ────────────────────────────────────────────────────────────────────
-.env
-.env.local
 .env.production
 .env.staging
 !.env.example
