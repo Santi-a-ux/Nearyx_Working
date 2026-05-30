@@ -108,6 +108,20 @@ async def ensure_schema_ready() -> None:
                         )
                 '''))
 
+                await conn.execute(text('''
+                        CREATE TABLE IF NOT EXISTS "tutors".ratings (
+                            id UUID PRIMARY KEY,
+                            tutor_user_id UUID NOT NULL REFERENCES "tutors".profiles(user_id) ON DELETE CASCADE,
+                            rater_user_id UUID NOT NULL,
+                            rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+                            created_at TIMESTAMPTZ DEFAULT NOW(),
+                            updated_at TIMESTAMPTZ DEFAULT NOW(),
+                            CONSTRAINT uq_tutor_ratings_tutor_rater UNIQUE (tutor_user_id, rater_user_id)
+                        )
+                '''))
+                await conn.execute(text('CREATE INDEX IF NOT EXISTS ix_tutors_ratings_tutor_user_id ON "tutors".ratings(tutor_user_id)'))
+                await conn.execute(text('CREATE INDEX IF NOT EXISTS ix_tutors_ratings_rater_user_id ON "tutors".ratings(rater_user_id)'))
+
 
 async def seed_real_tutors_if_needed() -> None:
     async with engine.begin() as conn:

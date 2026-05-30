@@ -16,15 +16,14 @@ async def create_booking(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    student_id = uuid.UUID(current_user["user_id"])
+    tutor_id = uuid.UUID(current_user["user_id"])
     
-    # Prevenir que empiece despues de que termine
     if booking_in.scheduled_end <= booking_in.scheduled_start:
         raise HTTPException(status_code=400, detail="Invalid time range")
 
     new_booking = Booking(
-        student_id=student_id,
-        tutor_id=booking_in.tutor_id,
+        student_id=booking_in.student_id,
+        tutor_id=tutor_id,
         scheduled_start=booking_in.scheduled_start,
         scheduled_end=booking_in.scheduled_end,
         status="pending"

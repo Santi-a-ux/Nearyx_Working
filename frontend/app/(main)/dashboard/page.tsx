@@ -59,6 +59,8 @@ interface Tutor {
   hourly_rate?: number;
   avatar_url?: string;
   is_available?: boolean;
+  average_rating?: number | null;
+  ratings_count?: number;
 }
 
 const starterPosts: Post[] = SAMPLE_POSTS;
@@ -83,7 +85,7 @@ export default function DashboardPage() {
     queryKey: ["tutors-sidebar"],
     queryFn: async () => {
       try {
-        const res = await fetchApi<Tutor[] | { tutors?: Tutor[] }>("/api/tutors/?limit=5");
+        const res = await fetchApi<Tutor[] | { tutors?: Tutor[] }>("/api/tutors/?limit=100&sort_by=rating");
         const tutors = Array.isArray(res) ? res : res.tutors ?? [];
 
         // Enrich tutors with display_name and avatar from users service to avoid generic fallbacks
@@ -222,6 +224,12 @@ export default function DashboardPage() {
                   <p className="truncate text-xs" style={{ color: 'rgba(253, 251, 212, 0.60)', fontFamily: 'var(--font-main)' }}>
                     {tutor.specialties?.slice(0, 2).join(", ") ?? "General"}
                   </p>
+                  {tutor.average_rating != null && (
+                    <p className="flex items-center gap-1 text-xs" style={{ color: '#C4783A', fontFamily: 'var(--font-main)' }}>
+                      ★ {tutor.average_rating.toFixed(1)}
+                      {tutor.ratings_count ? <span style={{ color: 'rgba(253,251,212,0.40)' }}>({tutor.ratings_count})</span> : null}
+                    </p>
+                  )}
                 </div>
                 <Link
                   href={`/messages?userId=${tutor.user_id}`}
@@ -329,6 +337,7 @@ function PostCard({ post }: PostCardProps) {
               <IconShare className="h-4 w-4" />
             </button>
           </div>
+
         </div>
       </div>
     </article>

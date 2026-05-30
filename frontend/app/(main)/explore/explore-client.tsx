@@ -65,7 +65,6 @@ export default function ExploreClient() {
         const enriched = await Promise.all(
           list.map(async (tutor) => {
             const profile = await fetchApi<{ display_name?: string; bio?: string; avatar_url?: string }>(`/api/users/profiles/${tutor.user_id}`).catch(() => null);
-
             return {
               ...tutor,
               display_name: profile?.display_name || tutor.display_name,
@@ -98,7 +97,6 @@ export default function ExploreClient() {
     if (mapPhase === 'found' && mapTutors.length > 0) {
       return mapTutors;
     }
-
     return tutors.filter((tutor) => matchesTutorSearch(tutor as TutorSearchRecord, activeSearch));
   }, [activeSearch, mapPhase, mapTutors, tutors]);
 
@@ -108,14 +106,16 @@ export default function ExploreClient() {
       : FEATURED_TOPICS.map((topic) => ({ token: topic.toLowerCase(), label: topic, count: 0, emoji: getCategoryEmoji(topic) }));
 
     const query = searchTopic.trim().toLowerCase();
-
     return topicSource
       .filter((item) => !query || item.label.toLowerCase().includes(query) || item.token.includes(query))
       .slice(0, 8);
   }, [dynamicTopics, searchTopic]);
 
   const chipTopics = useMemo(() => {
-    return (dynamicTopics.length === 0 ? FEATURED_TOPICS.map((tag) => ({ token: tag.toLowerCase(), label: tag, count: 0, emoji: getCategoryEmoji(tag) })) : dynamicTopics.map((topic) => ({ ...topic, emoji: getCategoryEmoji(topic.label) }))).slice(0, 8);
+    return (dynamicTopics.length === 0
+      ? FEATURED_TOPICS.map((tag) => ({ token: tag.toLowerCase(), label: tag, count: 0, emoji: getCategoryEmoji(tag) }))
+      : dynamicTopics.map((topic) => ({ ...topic, emoji: getCategoryEmoji(topic.label) }))
+    ).slice(0, 8);
   }, [dynamicTopics]);
 
   return (

@@ -5,10 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { AlertCircle, Loader2, MoreHorizontal, Search, Send } from "lucide-react";
+import { AlertCircle, CalendarDays, Loader2, MoreHorizontal, Search, Send } from "lucide-react";
 import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
 import { fetchApi } from "@/lib/api";
+import BookingModal from "@/components/booking/booking-modal";
 
 /* ---------------- TYPES (sin cambios) ---------------- */
 
@@ -59,9 +60,11 @@ function MessagesPageContent() {
   const [receiverId, setReceiverId] = useState(initialReceiverId);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [meId, setMeId] = useState<string | null>(null);
+  const [meRole, setMeRole] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [receiverProfile, setReceiverProfile] = useState<UserProfileSummary | null>(null);
+  const [showBookingModal, setShowBookingModal] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const receiverIdRef = useRef(initialReceiverId);
@@ -175,7 +178,7 @@ function MessagesPageContent() {
   useEffect(() => {
     fetch("/api/session")
       .then((r) => r.json())
-      .then((user: MyUserProfile) => setMeId(user.user_id))
+      .then((user: MyUserProfile) => { setMeId(user.user_id); setMeRole((user as any).role ?? null); })
       .finally(() => setIsLoading(false));
   }, []);
 
@@ -463,11 +466,32 @@ function MessagesPageContent() {
                 </div>
               </div>
 
-              <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[rgba(253, 251, 212, 0.25)] text-[rgba(253,251,212,0.72)] transition-all hover:bg-[rgba(253,251,212,0.06)] hover:text-[var(--color-bg)]">
-                <MoreHorizontal className="h-5 w-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {meRole === "tutor" && receiverId && (
+                  <button
+                    onClick={() => setShowBookingModal(true)}
+                    className="flex h-10 items-center gap-2 rounded-full border px-3 text-xs font-medium transition-all hover:bg-[rgba(253,251,212,0.06)]"
+                    style={{ borderColor: "rgba(253,251,212,0.25)", color: "rgba(253,251,212,0.72)" }}
+                  >
+                    <CalendarDays className="h-4 w-4" />
+                    Reservar
+                  </button>
+                )}
+                <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[rgba(253, 251, 212, 0.25)] text-[rgba(253,251,212,0.72)] transition-all hover:bg-[rgba(253,251,212,0.06)] hover:text-[var(--color-bg)]">
+                  <MoreHorizontal className="h-5 w-5" />
+                </button>
+              </div>
             </div>
           </div>
+
+          {showBookingModal && receiverId && (
+            <BookingModal
+              studentId={receiverId}
+              studentName={resolvedName}
+              onClose={() => setShowBookingModal(false)}
+              onSuccess={() => {}}
+            />
+          )}
 
           <div className="min-h-0 flex-1 overflow-hidden px-4 py-4 lg:px-5">
             <ScrollArea ref={scrollRef} className="h-full pr-2">

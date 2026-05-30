@@ -23,6 +23,8 @@ class TutorProfileOut(TutorProfileBase):
     id: UUID4
     user_id: UUID4
     preferred_payment_method: Optional[str]
+    average_rating: Optional[float] = None
+    ratings_count: int = 0
     verification_status: str
     is_available: bool
     created_at: datetime
@@ -34,3 +36,12 @@ class TutorProfileOut(TutorProfileBase):
 class TutorListOut(BaseModel):
     tutors: List[TutorProfileOut]
     total: int
+
+class TutorRatingCreate(BaseModel):
+    rating: int = Field(..., ge=1, le=5)
+
+class TutorRatingOut(BaseModel):
+    tutor_user_id: UUID4
+    my_rating: Optional[int] = None
+    average_rating: Optional[float] = None
+    ratings_count: int = 0

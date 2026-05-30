@@ -9,6 +9,7 @@ import {
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { CalendarDays } from "lucide-react";
 
 import {
   Sidebar,
@@ -22,10 +23,11 @@ import {
 } from "@/components/ui/sidebar";
 
 const items = [
-  { title: "Inicio",   url: "/dashboard",    icon: IconHome },
-  { title: "Explorar", url: "/explore",       icon: IconExplore },
-  { title: "Mensajes", url: "/messages",      icon: IconMessages },
-  { title: "Perfil",   url: "/profile/me",    icon: IconProfile },
+  { title: "Inicio",       url: "/dashboard",  icon: IconHome },
+  { title: "Explorar",     url: "/explore",    icon: IconExplore },
+  { title: "Mensajes",     url: "/messages",   icon: IconMessages },
+  { title: "Mis Reservas", url: "/bookings",   icon: CalendarDays },
+  { title: "Perfil",       url: "/profile/me", icon: IconProfile },
 ];
 
 export function AppSidebar() {

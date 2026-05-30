@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional
 
 class BookingCreate(BaseModel):
-    tutor_id: UUID4
+    student_id: UUID4
     scheduled_start: datetime
     scheduled_end: datetime
 

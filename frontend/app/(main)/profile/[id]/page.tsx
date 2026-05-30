@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { IconMessages, IconMap } from "@/components/icons/TmIcons";
 import MessageButton from "@/components/message-button";
+import TutorRating from "@/components/profile/tutor-rating";
 import { Clock } from "lucide-react";
 import Link from "next/link";
 
@@ -16,6 +17,8 @@ interface TutorProfile {
   headline?: string;
   hourly_rate?: number;
   years_experience?: number;
+  average_rating?: number | null;
+  ratings_count?: number;
   lat?: number;
   lng?: number;
   is_available?: boolean;
@@ -84,7 +87,12 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
               </div>
               <div className="flex flex-col">
                 <span className="text-sm" style={{ color: 'rgba(56, 36, 13, 0.60)', fontFamily: 'var(--font-main)' }}>Rating</span>
-                <span className="text-sm" style={{ color: 'rgba(56, 36, 13, 0.80)', fontFamily: 'var(--font-main)' }}>Sin valoraciones</span>
+                <span className="text-sm font-semibold" style={{ color: 'rgba(56, 36, 13, 0.80)', fontFamily: 'var(--font-main)' }}>
+                  {tutor.average_rating != null ? `${Number(tutor.average_rating).toFixed(1)} / 5` : "Sin valoraciones"}
+                </span>
+                <span className="text-xs" style={{ color: 'rgba(56, 36, 13, 0.50)', fontFamily: 'var(--font-main)' }}>
+                  {tutor.ratings_count ? `${tutor.ratings_count} valoraciones` : ""}
+                </span>
               </div>
               <div className="flex flex-col">
                 <span className="text-sm" style={{ color: 'rgba(56, 36, 13, 0.60)', fontFamily: 'var(--font-main)' }}>Años exp.</span>
@@ -152,11 +160,18 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
         </TabsContent>
 
         <TabsContent value="reviews" className="mt-4">
+          <div className="space-y-4">
+            <TutorRating
+              tutorUserId={tutor.user_id}
+              initialAverage={tutor.average_rating}
+              initialCount={tutor.ratings_count ?? 0}
+            />
           <Card>
             <CardContent className="py-10 text-center text-white/50">
               <p>Aún no hay reseñas para mostrar.</p>
             </CardContent>
           </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
