@@ -1,0 +1,393 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Start Docker Stack",
+			"type": "shell",
+			"command": "docker compose up -d --build",
+			"problemMatcher": []
+		},
+		{
+			"label": "Docker Compose PS",
+			"type": "shell",
+			"command": "docker compose ps",
+			"problemMatcher": []
+		},
+		{
+			"label": "Test Register Login",
+			"type": "shell",
+			"command": "powershell -NoProfile -Command \"$email='qa'+(Get-Random)+'@example.com'; $reg = Invoke-RestMethod -Method Post -Uri 'http://localhost:8000/auth/register' -ContentType 'application/json' -Body (@{email=$email;password='Password123!';role='tutor'} | ConvertTo-Json); Write-Output ('REGISTER_OK email='+$email+' user_id='+$reg.user.id); $login = Invoke-RestMethod -Method Post -Uri 'http://localhost:8000/auth/login' -ContentType 'application/json' -Body (@{email=$email;password='Password123!'} | ConvertTo-Json); if ($login.access_token) { Write-Output 'LOGIN_OK token_present=true' } else { Write-Output 'LOGIN_FAIL token_present=false' }\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "Test Register HTTP",
+			"type": "shell",
+			"command": "curl.exe -i -H \"Content-Type: application/json\" -d \"{\\\"email\\\":\\\"manualcheck@example.com\\\",\\\"password\\\":\\\"Password123!\\\",\\\"role\\\":\\\"tutor\\\"}\" http://localhost:8000/auth/register",
+			"problemMatcher": []
+		},
+		{
+			"label": "Test Register HTTP 2",
+			"type": "shell",
+			"command": "$body = '{\"email\":\"manualcheck2@example.com\",\"password\":\"Password123!\",\"role\":\"tutor\"}'; curl.exe -i -H \"Content-Type: application/json\" -d $body http://localhost:8000/auth/register",
+			"problemMatcher": []
+		},
+		{
+			"label": "Test Register Login PS",
+			"type": "shell",
+			"command": "$ErrorActionPreference='Stop'; $email='qa'+(Get-Random)+'@example.com'; $regBody = @{ email=$email; password='Password123!'; role='tutor' } | ConvertTo-Json -Compress; $regResp = Invoke-WebRequest -Uri 'http://localhost:8000/auth/register' -Method POST -ContentType 'application/json' -Body $regBody; Write-Host ('REGISTER_STATUS=' + [int]$regResp.StatusCode); Write-Host ('REGISTER_EMAIL=' + $email); $loginBody = @{ email=$email; password='Password123!' } | ConvertTo-Json -Compress; $loginResp = Invoke-WebRequest -Uri 'http://localhost:8000/auth/login' -Method POST -ContentType 'application/json' -Body $loginBody; Write-Host ('LOGIN_STATUS=' + [int]$loginResp.StatusCode); if ($loginResp.Content -match 'access_token') { Write-Host 'LOGIN_TOKEN=true' } else { Write-Host 'LOGIN_TOKEN=false' }",
+			"problemMatcher": []
+		},
+		{
+			"label": "Test Register With FullName",
+			"type": "shell",
+			"command": "$email='fullname'+(Get-Random)+'@example.com'; $body=@{email=$email;password='Password123!';role='tutor';full_name='Juan Perez'} | ConvertTo-Json -Compress; try { $resp=Invoke-WebRequest -Uri 'http://localhost:8000/auth/register' -Method POST -ContentType 'application/json' -Body $body; Write-Host ('STATUS=' + [int]$resp.StatusCode); Write-Host ('EMAIL=' + $email) } catch { if ($_.Exception.Response -ne $null) { Write-Host ('STATUS=' + [int]$_.Exception.Response.StatusCode.value__); $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream()); $reader.BaseStream.Position = 0; $reader.DiscardBufferedData(); Write-Host ('BODY=' + $reader.ReadToEnd()) } else { Write-Host $_.Exception.Message } }",
+			"problemMatcher": []
+		},
+		{
+			"label": "Rebuild Updated Services",
+			"type": "shell",
+			"command": "docker compose up -d --build auth-service user-service frontend gateway",
+			"problemMatcher": []
+		},
+		{
+			"label": "Final Auth Validation",
+			"type": "shell",
+			"command": "$ErrorActionPreference='Stop'; $email='ok'+(Get-Random)+'@example.com'; $regBody = @{ email=$email; password='Password123!'; role='tutor'; full_name='Test User' } | ConvertTo-Json -Compress; $regResp = Invoke-WebRequest -Uri 'http://localhost:8000/auth/register' -Method POST -ContentType 'application/json' -Body $regBody; Write-Host ('REGISTER_STATUS=' + [int]$regResp.StatusCode); $loginBody = @{ email=$email; password='Password123!' } | ConvertTo-Json -Compress; $loginResp = Invoke-WebRequest -Uri 'http://localhost:8000/auth/login' -Method POST -ContentType 'application/json' -Body $loginBody; Write-Host ('LOGIN_STATUS=' + [int]$loginResp.StatusCode); if ($loginResp.Content -match 'access_token') { Write-Host 'ACCESS_TOKEN_PRESENT=true' } else { Write-Host 'ACCESS_TOKEN_PRESENT=false' }",
+			"problemMatcher": []
+		},
+		{
+			"label": "Tutor Service Logs",
+			"type": "shell",
+			"command": "docker compose logs tutor-service --tail=120",
+			"problemMatcher": []
+		},
+		{
+			"label": "Check Tutor Table",
+			"type": "shell",
+			"command": "docker compose exec -T postgres psql -U postgres -d ttp -c \"SELECT schemaname, tablename FROM pg_tables WHERE schemaname='tutors';\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "Check Tutor Table 2",
+			"type": "shell",
+			"command": "docker compose exec -T postgres psql -U postgres -d ttp -c 'SELECT schemaname, tablename FROM pg_tables WHERE schemaname=''tutors'';'",
+			"problemMatcher": []
+		},
+		{
+			"label": "Verify Tutor Seed",
+			"type": "shell",
+			"command": "docker compose exec -T postgres psql -U postgres -d ttp -Atc \"SELECT count(*) FROM tutors.profiles; SELECT display_name FROM users.profiles ORDER BY created_at ASC LIMIT 10;\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "Check Tutor Count Direct",
+			"type": "shell",
+			"command": "docker compose exec -T postgres sh -lc \"psql -U postgres -d ttp -Atc 'SELECT count(*) FROM tutors.profiles;'\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "Check Tutor Count User Postgres",
+			"type": "shell",
+			"command": "docker compose exec -T -u postgres postgres psql -d ttp -Atc 'SELECT count(*) FROM tutors.profiles;'",
+			"problemMatcher": []
+		},
+		{
+			"label": "Apply Tutor Seed",
+			"type": "shell",
+			"command": "Get-Content .\\scripts\\seed.sql -Raw | docker compose exec -T -u postgres postgres psql -d ttp",
+			"problemMatcher": []
+		},
+		{
+			"label": "Verify Tutor API",
+			"type": "shell",
+			"command": "$resp = Invoke-RestMethod -Uri 'http://localhost:8000/tutors?limit=10'; Write-Host ('TOTAL=' + $resp.total); $resp.tutors | ForEach-Object { Write-Host $_.user_id '|' ($_.specialties -join ', ') }",
+			"problemMatcher": []
+		},
+		{
+			"label": "Create Auth Accounts Script",
+			"type": "shell",
+			"command": "powershell -NoProfile -Command \"$tutors = @(\n  @{id='c1b7f33a-2b9c-4c9e-8f70-111111111111'; email='david.ramirez@local.test'; pwd='TutorPass1!'},\n  @{id='c1b7f33a-2b9c-4c9e-8f70-222222222222'; email='isabella.garcia@local.test'; pwd='TutorPass2!'},\n  @{id='c1b7f33a-2b9c-4c9e-8f70-333333333333'; email='carlos.vega@local.test'; pwd='TutorPass3!'},\n  @{id='c1b7f33a-2b9c-4c9e-8f70-444444444444'; email='martina.rodriguez@local.test'; pwd='TutorPass4!'},\n  @{id='550e8400-e29b-41d4-a716-446655440005'; email='sebastian.morales@local.test'; pwd='TutorPass5!'}\n)\n\nforeach ($t in $tutors) {\n  Write-Host \"Processing $($t.email)\"\n  $hash = docker compose exec -T auth-service python -c \\\"from app.security import get_password_hash; print(get_password_hash('$($t.pwd)'))\\\" | tr -d '\\r'\n  if (-not $hash) { Write-Host 'Hash generation failed'; exit 1 }\n  $sql = \"INSERT INTO auth.users (id,email,password_hash,role,is_active) VALUES ('$($t.id)','${t.email}','$hash','tutor',true) ON CONFLICT (email) DO UPDATE SET password_hash=EXCLUDED.password_hash, role=EXCLUDED.role;\"\n  docker compose exec -T -u postgres postgres psql -d ttp -c $sql\n}\nWrite-Host 'Done'\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "Create auth user david",
+			"type": "shell",
+			"command": "$hash = docker compose exec -T auth-service python -c \"from app.security import get_password_hash; print(get_password_hash('TutorPass1!'))\"; $hash = $hash.Trim(); Write-Host \"HASH=$hash\"; docker compose exec -T -u postgres postgres psql -d ttp -c \"INSERT INTO auth.users (id,email,password_hash,role,is_active) VALUES ('c1b7f33a-2b9c-4c9e-8f70-111111111111','david.ramirez@local.test','$hash','tutor',true) ON CONFLICT (email) DO UPDATE SET password_hash=EXCLUDED.password_hash, role=EXCLUDED.role;\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "Generate hash david",
+			"type": "shell",
+			"command": "docker compose exec -T auth-service python -c \"from app.security import get_password_hash; print(get_password_hash('TutorPass1!'))\" > david_hash.txt",
+			"problemMatcher": []
+		},
+		{
+			"label": "Generate hash david v2",
+			"type": "shell",
+			"command": "powershell -NoProfile -Command 'docker compose exec -T auth-service python -c \"from app.security import get_password_hash; print(get_password_hash(\\\"TutorPass1!\\\"))\"' > david_hash.txt",
+			"problemMatcher": []
+		},
+		{
+			"label": "Register and link david",
+			"type": "shell",
+			"command": "powershell -NoProfile -Command \"$body = @{ email='david.ramirez@local.test'; password='TutorPass1!'; role='tutor' } | ConvertTo-Json; $reg = Invoke-RestMethod -Method Post -Uri 'http://localhost:8000/auth/register' -ContentType 'application/json' -Body $body; Write-Host 'REGISTERED_ID=' + $reg.user.id; $newId = $reg.user.id; $oldId = 'c1b7f33a-2b9c-4c9e-8f70-111111111111'; docker compose exec -T -u postgres postgres psql -d ttp -c \"UPDATE \\\"users\\\".profiles SET id='\" + $newId + \"', user_id='\" + $newId + \"' WHERE display_name='David Ram\\'irez L\\'opez' OR display_name='David Ramírez López';\"; docker compose exec -T -u postgres postgres psql -d ttp -c \"UPDATE \\\"tutors\\\".profiles SET id='\" + $newId + \"', user_id='\" + $newId + \"' WHERE user_id='\" + $oldId + \"'\"; Write-Host 'Linked to new id ' + $newId\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "Register david via curl",
+			"type": "shell",
+			"command": "curl.exe -s -H \"Content-Type: application/json\" -d \"{\\\"email\\\":\\\"david.ramirez@local.test\\\",\\\"password\\\":\\\"TutorPass1!\\\",\\\"role\\\":\\\"tutor\\\"}\" http://localhost:8000/auth/register -o david_reg.json; type david_reg.json",
+			"problemMatcher": []
+		},
+		{
+			"label": "Register david PS",
+			"type": "shell",
+			"command": "powershell -NoProfile -Command \"$body = @{email='david.ramirez@local.test'; password='TutorPass1!'; role='tutor'} | ConvertTo-Json; $reg = Invoke-RestMethod -Uri 'http://localhost:8000/auth/register' -Method Post -Body $body -ContentType 'application/json'; $reg | ConvertTo-Json -Depth 5\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "Generate tokens",
+			"type": "shell",
+			"command": "docker compose exec -T auth-service python generate_tokens.py",
+			"problemMatcher": []
+		},
+		{
+			"label": "Generate tokens heredoc",
+			"type": "shell",
+			"command": "docker compose exec -T auth-service sh -lc \"python - <<'PY'\nfrom app.security import create_access_token\nUSERS = [\n    ('c1b7f33a-2b9c-4c9e-8f70-111111111111', 'David Ramírez López'),\n    ('c1b7f33a-2b9c-4c9e-8f70-222222222222', 'Isabella García Martínez'),\n    ('c1b7f33a-2b9c-4c9e-8f70-333333333333', 'Carlos Enrique Vega'),\n    ('c1b7f33a-2b9c-4c9e-8f70-444444444444', 'Martina Rodríguez Acevedo'),\n    ('550e8400-e29b-41d4-a716-446655440005', 'Sebastián Morales Londoño'),\n]\nfor uid, name in USERS:\n    token = create_access_token(uid, role='tutor')\n    print(f\"{name} | {uid} | {token}\")\nPY\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "create-real-tutor-auth-accounts",
+			"type": "shell",
+			"command": "docker",
+			"args": [
+				"compose",
+				"exec",
+				"-T",
+				"auth-service",
+				"python",
+				"/app/scripts/setup_real_tutor_accounts.py"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "apply-real-tutor-changes",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-File",
+				"scripts/apply_real_tutor_changes.ps1"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "verify-real-tutor-changes",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-File",
+				"scripts/verify_real_tutor_changes.ps1"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "apply-real-tutor-changes",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-File",
+				"scripts/apply_real_tutor_changes.ps1"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "apply-real-tutor-changes",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-File",
+				"scripts/apply_real_tutor_changes.ps1"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "apply-real-tutor-changes",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-File",
+				"scripts/apply_real_tutor_changes.ps1"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "verify-real-tutor-changes",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-File",
+				"scripts/verify_real_tutor_changes.ps1"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "verify-avatar-upload",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-File",
+				"scripts/verify_avatar_upload.ps1"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "media-service-logs",
+			"type": "shell",
+			"command": "docker",
+			"args": [
+				"compose",
+				"logs",
+				"--tail",
+				"80",
+				"media-service"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "rebuild-media-service",
+			"type": "shell",
+			"command": "docker",
+			"args": [
+				"compose",
+				"up",
+				"-d",
+				"--build",
+				"media-service"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "verify-avatar-upload",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-File",
+				"scripts/verify_avatar_upload.ps1"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "chat-service-logs",
+			"type": "shell",
+			"command": "docker",
+			"args": [
+				"compose",
+				"logs",
+				"--tail",
+				"100",
+				"chat-service"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "rebuild-chat-service",
+			"type": "shell",
+			"command": "docker",
+			"args": [
+				"compose",
+				"up",
+				"-d",
+				"--build",
+				"chat-service"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "rebuild-frontend",
+			"type": "shell",
+			"command": "docker",
+			"args": [
+				"compose",
+				"up",
+				"-d",
+				"--build",
+				"frontend"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "rebuild-frontend-final",
+			"type": "shell",
+			"command": "docker",
+			"args": [
+				"compose",
+				"up",
+				"-d",
+				"--build",
+				"frontend"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "rebuild-frontend-fixed",
+			"type": "shell",
+			"command": "docker",
+			"args": [
+				"compose",
+				"up",
+				"-d",
+				"--build",
+				"frontend"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "rebuild-frontend-with-tutors-proxy",
+			"type": "shell",
+			"command": "docker",
+			"args": [
+				"compose",
+				"up",
+				"-d",
+				"--build",
+				"frontend"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		}
+	]
+}

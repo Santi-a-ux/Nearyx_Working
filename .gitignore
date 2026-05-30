@@ -1,0 +1,55 @@
+# ─── ENTORNO ────────────────────────────────────────────────────────────────────
+.env
+.env.local
+.env.production
+.env.staging
+!.env.example
+
+# ─── PYTHON ─────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# ─── ALEMBIC ────────────────────────────────────────────────────────────────────
+# No ignorar las versiones de migración, sí ignorar el __pycache__ dentro de alembic
+**/alembic/__pycache__/
+**/alembic/versions/__pycache__/
+
+# ─── NODE / NEXT.JS ─────────────────────────────────────────────────────────────
+node_modules/
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+frontend/.next/
+frontend/node_modules/
+
+# ─── DOCKER ─────────────────────────────────────────────────────────────────────
+# No ignorar docker-compose.yml — sí ignorar overrides locales
+docker-compose.override.yml
+
+# ─── IDE ────────────────────────────────────────────────────────────────────────
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ─── UPLOADS LOCALES ────────────────────────────────────────────────────────────
+uploads/
+media/
+tmp/

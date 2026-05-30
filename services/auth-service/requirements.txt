@@ -1,0 +1,14 @@
+fastapi[all]==0.110.0
+sqlalchemy==2.0.28
+asyncpg==0.29.0
+alembic==1.13.1
+fastapi[all]==0.110.0                                                                                                                             
+sqlalchemy==2.0.28                                                                                                                                
+asyncpg==0.29.0
+alembic==1.13.1
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+python-jose[cryptography]==3.3.0
+pydantic-settings==2.2.1
+python-jose[cryptography]==3.3.0
+pydantic-settings==2.2.1
