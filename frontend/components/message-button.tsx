@@ -34,7 +34,12 @@ export default function MessageButton({ userId, className }: Props) {
   }
 
   return (
-    <Button size="lg" className={className} onClick={handleClick} style={{ backgroundColor: '#C4783A', color: '#FDFBD4', fontFamily: 'var(--font-main)' }}>
+    <Button
+      size="lg"
+      className={className}
+      onClick={handleClick}
+      style={{ backgroundColor: "var(--primary)", color: "var(--primary-foreground)", fontFamily: "var(--font-body)" }}
+    >
       <IconMessages className="mr-2 h-4 w-4" />
       Enviar Mensaje
     </Button>

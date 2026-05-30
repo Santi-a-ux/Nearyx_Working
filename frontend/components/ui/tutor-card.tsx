@@ -19,7 +19,6 @@ export interface TutorCardProps {
   skills?: string[];
   avatar_url?: string;
   is_available?: boolean;
-  ratings_count?: number;
 }
 
 export function TutorCard({
@@ -30,7 +29,6 @@ export function TutorCard({
   bio,
   hourly_rate,
   rating,
-  ratings_count,
   skills,
   avatar_url,
   is_available,
@@ -54,12 +52,7 @@ export function TutorCard({
           <p className="line-clamp-1 text-xs text-white/50">{headline || bio || "Especialista disponible"}</p>
           <div className="mt-2 flex items-center gap-2">
             <Star className="h-4 w-4 text-amber-400" />
-            <span className="text-sm font-medium text-white/80">
-              {rating != null ? rating.toFixed(1) : "Nuevo"}
-            </span>
-            {ratings_count ? (
-              <span className="text-xs text-white/40">({ratings_count})</span>
-            ) : null}
+            <span className="text-sm font-medium text-white/80">{rating?.toFixed(1) || "5.0"}</span>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             {skills?.slice(0, 4).map((s) => (

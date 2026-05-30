@@ -63,6 +63,7 @@ export default function MapboxMap({ topicFilter, searchResults, onTutorsFound }:
   const [searchPhase, setSearchPhase] = useState<'idle' | 'searching' | 'found' | 'empty'>('idle');
   const [foundTutors, setFoundTutors] = useState<Tutor[]>([]);
   const [currentRadius, setCurrentRadius] = useState(0);
+  const hasMapboxToken = Boolean(process.env.NEXT_PUBLIC_MAPBOX_TOKEN);
 
   const clearMarkers = () => {
     markersRef.current.forEach((marker) => marker.remove());
@@ -379,6 +380,21 @@ export default function MapboxMap({ topicFilter, searchResults, onTutorsFound }:
       map.current = null;
     };
   }, []);
+
+  if (!hasMapboxToken) {
+    return (
+      <div className="relative h-full min-h-125 w-full overflow-hidden rounded-lg bg-slate-200">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.72),transparent_40%)]" />
+        <div className="absolute inset-0 flex items-center justify-center p-6 text-center">
+          <div className="max-w-md rounded-2xl border border-white/60 bg-white/80 p-6 shadow-sm backdrop-blur">
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">Mapa temporalmente desactivado</p>
+            <h3 className="mt-3 text-xl font-bold text-slate-900">Falta configurar el token de Mapbox</h3>
+            <p className="mt-3 text-sm leading-6 text-slate-600">Carga el token público para mostrar tutores sobre el mapa. Mientras tanto, la vista queda como placeholder.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative h-full min-h-125 w-full">

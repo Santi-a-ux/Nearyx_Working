@@ -15,12 +15,12 @@ const staticItems = [
   {
     title: "Explora tutores activos",
     description: "Revisa los tutores con mejor coincidencia en tu zona y temática.",
-    tone: "bg-primary/10 text-primary",
+    tone: "bg-[var(--brand-soft)] text-[var(--primary)]",
   },
   {
     title: "Actualiza tu perfil",
     description: "Una foto y una bio claras mejoran la visibilidad en el mapa.",
-    tone: "bg-muted text-foreground",
+    tone: "bg-[var(--muted)] text-[var(--foreground)]",
   },
 ];
 
@@ -120,9 +120,9 @@ export function NotificationsBell() {
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-haspopup="dialog"
-        className="relative rounded-md p-2 hover:bg-muted/30"
+        className="relative rounded-md p-2 hover:bg-[var(--background)]"
       >
-        <span style={{ color: "#D4956A" }}>
+        <span style={{ color: "var(--primary)" }}>
           <IconBell className="w-5 h-5" />
         </span>
       </button>

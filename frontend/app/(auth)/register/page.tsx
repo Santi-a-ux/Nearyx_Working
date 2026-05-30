@@ -5,6 +5,8 @@ import { registerAction } from "@/lib/auth";
 import { toast } from "sonner";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { IconProfile, IconMail, IconLock } from "@/components/icons/TmIcons";
 
 export default function RegisterPage() {
@@ -18,137 +20,106 @@ export default function RegisterPage() {
   }, [state]);
 
   return (
-    <div style={{ fontFamily: 'var(--font-main)' }}>
+    <div style={{ fontFamily: "var(--font-body)" }}>
       <div className="mb-8">
-        <h1 className="mb-1 text-2xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-main)', color: '#FDFBD4' }}>Crea tu cuenta</h1>
-        <p className="text-sm" style={{ fontFamily: 'var(--font-main)', color: 'rgba(253, 251, 212, 0.60)' }}>Únete a estudiantes y tutores de Medellín</p>
+        <h1 className="mb-1 text-2xl font-semibold tracking-tight text-[var(--ui-dark-panel-text)]" style={{ fontFamily: "var(--font-heading)" }}>
+          Crea tu cuenta
+        </h1>
+        <p className="text-sm text-[rgba(248,251,255,0.72)]">Únete a estudiantes y tutores de Medellín</p>
       </div>
 
-      <form action={formAction} className="space-y-4" style={{ fontFamily: 'var(--font-main)' }}>
+      <form action={formAction} className="space-y-4" style={{ fontFamily: "var(--font-body)" }}>
         <div className="space-y-1.5">
-          <label className="text-xs font-medium uppercase tracking-wider" style={{ color: 'rgba(253, 251, 212, 0.60)' }}>Nombre completo</label>
+          <label className="text-xs font-bold uppercase tracking-[0.14em] text-[rgba(248,251,255,0.72)]">Nombre completo</label>
           <div className="relative">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'rgba(253, 251, 212, 0.30)' }}>
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[rgba(248,251,255,0.42)]">
               <IconProfile className="h-4 w-4" />
             </div>
-            <input
+            <Input
               name="fullName"
               type="text"
               placeholder="Juan Pérez"
               required
               disabled={isPending}
-              className="w-full rounded-xl py-3 pl-10 pr-4 text-sm outline-none transition-all disabled:opacity-50"
-              style={{ 
-                borderColor: 'rgba(253, 251, 212, 0.25)',
-                backgroundColor: 'rgba(253, 251, 212, 0.08)',
-                color: '#FDFBD4',
-                border: '1px solid'
-              }}
+              className="h-12 rounded-xl border border-[rgba(148,163,184,0.35)] bg-[rgba(148,163,184,0.10)] pl-10 pr-4 text-sm text-(--ui-dark-panel-text) shadow-none outline-none transition-all placeholder:text-[rgba(248,251,255,0.55)] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,88,255,0.18)] disabled:opacity-50"
             />
           </div>
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs font-medium uppercase tracking-wider" style={{ color: 'rgba(253, 251, 212, 0.60)' }}>Correo electrónico</label>
+          <label className="text-xs font-bold uppercase tracking-[0.14em] text-[rgba(248,251,255,0.72)]">Correo electrónico</label>
           <div className="relative">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'rgba(253, 251, 212, 0.30)' }}>
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[rgba(248,251,255,0.42)]">
               <IconMail className="h-4 w-4" />
             </div>
-            <input
+            <Input
               name="email"
               type="email"
               placeholder="correo@ejemplo.com"
               required
               disabled={isPending}
-              className="w-full rounded-xl py-3 pl-10 pr-4 text-sm outline-none transition-all disabled:opacity-50"
-              style={{ 
-                borderColor: 'rgba(253, 251, 212, 0.25)',
-                backgroundColor: 'rgba(253, 251, 212, 0.08)',
-                color: '#FDFBD4',
-                border: '1px solid'
-              }}
+              className="h-12 rounded-xl border border-[rgba(148,163,184,0.35)] bg-[rgba(148,163,184,0.10)] pl-10 pr-4 text-sm text-(--ui-dark-panel-text) shadow-none outline-none transition-all placeholder:text-[rgba(248,251,255,0.55)] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,88,255,0.18)] disabled:opacity-50"
             />
           </div>
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs font-medium uppercase tracking-wider" style={{ color: 'rgba(253, 251, 212, 0.60)' }}>Contraseña</label>
+          <label className="text-xs font-bold uppercase tracking-[0.14em] text-[rgba(248,251,255,0.72)]">Contraseña</label>
           <div className="relative">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'rgba(253, 251, 212, 0.30)' }}>
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[rgba(248,251,255,0.42)]">
               <IconLock className="h-4 w-4" />
             </div>
-            <input
+            <Input
               name="password"
               type="password"
               placeholder="Mínimo 8 caracteres"
               required
               disabled={isPending}
-              className="w-full rounded-xl py-3 pl-10 pr-4 text-sm outline-none transition-all disabled:opacity-50"
-              style={{ 
-                borderColor: 'rgba(253, 251, 212, 0.25)',
-                backgroundColor: 'rgba(253, 251, 212, 0.08)',
-                color: '#FDFBD4',
-                border: '1px solid'
-              }}
+              className="h-12 rounded-xl border border-[rgba(148,163,184,0.35)] bg-[rgba(148,163,184,0.10)] pl-10 pr-4 text-sm text-(--ui-dark-panel-text) shadow-none outline-none transition-all placeholder:text-[rgba(248,251,255,0.55)] focus:border-primary focus:shadow-[0_0_0_3px_rgba(0,88,255,0.18)] disabled:opacity-50"
             />
           </div>
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs font-medium uppercase tracking-wider" style={{ color: 'rgba(253, 251, 212, 0.60)' }}>Quiero ser...</label>
+          <label className="text-xs font-bold uppercase tracking-[0.14em] text-[rgba(248,251,255,0.72)]">Quiero ser...</label>
           <div className="grid grid-cols-2 gap-2">
-            <button
+            <Button
               type="button"
               onClick={() => setRole("student")}
-              className="flex flex-col items-center gap-1 rounded-xl border p-3.5 text-sm font-medium transition-all"
-              style={{ 
-                borderColor: role === "student" ? '#C4783A' : 'rgba(253, 251, 212, 0.25)',
-                backgroundColor: role === "student" ? 'rgba(196, 120, 58, 0.20)' : 'rgba(253, 251, 212, 0.08)',
-                color: role === "student" ? '#FDFBD4' : 'rgba(253, 251, 212, 0.50)',
-                boxShadow: role === "student" ? 'rgba(196, 120, 58, 0.20) 0 4px 12px' : 'none'
-              }}
+              variant={role === "student" ? "default" : "outline"}
+              className="flex h-auto flex-col items-center gap-1 rounded-xl px-3.5 py-3.5 text-sm font-bold text-[rgba(248,251,255,0.92)]"
             >
               <span className="text-xl">🎓</span>
               <span>Estudiante</span>
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               onClick={() => setRole("tutor")}
-              className="flex flex-col items-center gap-1 rounded-xl border p-3.5 text-sm font-medium transition-all"
-              style={{ 
-                borderColor: role === "tutor" ? '#C4783A' : 'rgba(253, 251, 212, 0.25)',
-                backgroundColor: role === "tutor" ? 'rgba(196, 120, 58, 0.20)' : 'rgba(253, 251, 212, 0.08)',
-                color: role === "tutor" ? '#FDFBD4' : 'rgba(253, 251, 212, 0.50)',
-                boxShadow: role === "tutor" ? 'rgba(196, 120, 58, 0.20) 0 4px 12px' : 'none'
-              }}
+              variant={role === "tutor" ? "default" : "outline"}
+              className="flex h-auto flex-col items-center gap-1 rounded-xl px-3.5 py-3.5 text-sm font-bold text-[rgba(248,251,255,0.92)]"
             >
               <span className="text-xl">📚</span>
               <span>Tutor</span>
-            </button>
+            </Button>
           </div>
           <input type="hidden" name="role" value={role} />
         </div>
 
-        {state?.error && <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs text-red-400">{state.error}</div>}
+        {state?.error && <div className="rounded-xl border border-red-500/25 bg-red-500/12 px-4 py-3 text-xs text-red-300">{state.error}</div>}
 
-        <button
+        <Button
           type="submit"
           disabled={isPending}
-          className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold shadow-lg transition-all disabled:cursor-not-allowed disabled:opacity-50"
-          style={{ 
-            backgroundColor: '#C4783A',
-            color: '#FDFBD4',
-            boxShadow: 'rgba(196, 120, 58, 0.30) 0 8px 16px'
-          }}
+          className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[var(--primary)] px-4 text-sm font-bold text-[var(--primary-foreground)] shadow-[0_10px_22px_rgba(0,88,255,0.35)] transition-all hover:bg-[var(--brand-hover)] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
           {isPending ? "Creando cuenta..." : "Crear cuenta gratis"}
-        </button>
+        </Button>
       </form>
 
-      <p className="mt-6 text-center text-xs" style={{ color: 'rgba(253, 251, 212, 0.30)' }}>
+      <p className="mt-6 text-center text-xs text-[rgba(248,251,255,0.62)]">
         ¿Ya tienes cuenta?{" "}
-        <Link href="/login" className="font-medium transition-colors" style={{ color: '#C4783A' }}>
+        <Link href="/login" className="font-bold text-[var(--brand-soft)] transition-colors hover:text-[var(--primary)]">
           Inicia sesión
         </Link>
       </p>

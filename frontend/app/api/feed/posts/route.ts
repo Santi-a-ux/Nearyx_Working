@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     const token = cookieStore.get("token")?.value;
     const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
 
-    let authData: any = { id: "anonymous", email: "user@tutormatch.local" };
+    let authData: any = { id: "anonymous", email: "user@nearyx.local" };
     let userData: any = {};
 
     if (token) {

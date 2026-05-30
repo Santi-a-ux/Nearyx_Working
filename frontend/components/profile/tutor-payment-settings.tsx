@@ -5,6 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
+const METHODS = [
+  { value: "paypal", label: "PayPal" },
+  { value: "bank_transfer", label: "Transferencia" },
+  { value: "card", label: "Tarjeta" },
+  { value: "cash", label: "Efectivo" },
+] as const;
+
 export default function TutorPaymentSettings({ initial }: { initial?: string }) {
   const [method, setMethod] = useState(initial || "");
   const [loading, setLoading] = useState(false);
@@ -35,20 +42,18 @@ export default function TutorPaymentSettings({ initial }: { initial?: string }) 
   return (
     <div className="space-y-2">
       <Label>Metodo de pago preferido</Label>
-      <div className="flex items-center gap-3">
-        <select
-          value={method}
-          onChange={(e) => setMethod(e.target.value)}
-          className="rounded border bg-transparent px-3 py-1 text-sm text-white/80"
-        >
-          <option value="" disabled>
-            Selecciona un método
-          </option>
-          <option value="paypal">PayPal</option>
-          <option value="bank_transfer">Transferencia bancaria</option>
-          <option value="card">Tarjeta</option>
-          <option value="cash">Efectivo</option>
-        </select>
+      <div className="flex flex-wrap items-center gap-2">
+        {METHODS.map((item) => (
+          <Button
+            key={item.value}
+            type="button"
+            variant={method === item.value ? "default" : "outline"}
+            size="sm"
+            onClick={() => setMethod(item.value)}
+          >
+            {item.label}
+          </Button>
+        ))}
         <Button onClick={save} disabled={loading || !method} size="sm">
           {loading ? "Guardando..." : "Guardar"}
         </Button>

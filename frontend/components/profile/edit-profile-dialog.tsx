@@ -94,10 +94,10 @@ export function EditProfileDialog({ initialData }: EditProfileDialogProps) {
 
   return (
     <>
-      <Button 
-        variant="outline" 
-        size="sm" 
-        className="gap-2 border-[rgba(253,251,212,0.2)] bg-transparent text-[rgba(253,251,212,0.85)] hover:bg-[rgba(253,251,212,0.08)] hover:text-[var(--color-bg)]" 
+      <Button
+        variant="outline"
+        size="sm"
+        className="gap-2 rounded-xl border-border bg-background text-foreground hover:bg-muted"
         onClick={() => setOpen(true)}
       >
         <Edit2 className="h-4 w-4" />
@@ -122,7 +122,7 @@ export function EditProfileDialog({ initialData }: EditProfileDialogProps) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="avatar">Foto de perfil</Label>
-            <input
+            <Input
               id="avatar"
               name="avatar"
               type="file"
@@ -132,9 +132,9 @@ export function EditProfileDialog({ initialData }: EditProfileDialogProps) {
                 const url = await handleFile(f);
                 if (url) setFormData((p) => ({ ...p, avatar_url: url }));
               }}
-              className="text-sm text-white/80"
+              className="h-auto border-0 bg-transparent px-0 py-0 text-sm text-foreground shadow-none file:mr-4 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-semibold file:text-primary-foreground"
             />
-            {uploading && <p className="text-xs text-white/50">Subiendo...</p>}
+            {uploading && <p className="text-xs text-muted-foreground">Subiendo...</p>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="location_name">Ciudad</Label>

@@ -1,14 +1,13 @@
+import Link from "next/link";
+
 import { fetchApi } from "@/lib/api";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { IconMessages, IconMap } from "@/components/icons/TmIcons";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MessageButton from "@/components/message-button";
 import TutorRating from "@/components/profile/tutor-rating";
-import { Clock } from "lucide-react";
-import Link from "next/link";
+import { Clock, MapPin, MessageCircle, Star } from "lucide-react";
 
 interface TutorProfile {
   user_id: string;
@@ -40,123 +39,127 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
   try {
     tutor = await fetchApi<TutorProfile>(`/tutors/${id}`);
     userProfile = await fetchApi<UserProfile>(`/users/profiles/${id}`).catch(() => null);
-} catch (error: unknown) {
-      const err = error as Error;
-      errorMsg = err.message || "No se pudo cargar el perfil del tutor";
+  } catch (error: unknown) {
+    const err = error as Error;
+    errorMsg = err.message || "No se pudo cargar el perfil del tutor";
   }
 
   if (errorMsg || !tutor) {
     return (
-      <div className="p-6 text-center">
-        <h2 className="mb-2 text-2xl font-bold" style={{ color: '#38240D', fontFamily: 'var(--font-main)' }}>Tutor no encontrado</h2>
-        <p className="mb-4" style={{ color: 'rgba(56, 36, 13, 0.60)', fontFamily: 'var(--font-main)' }}>{errorMsg}</p>
-        <Link href="/dashboard"><Button>Volver al inicio</Button></Link>
+      <div className="mx-auto flex max-w-3xl items-center justify-center px-4 py-10">
+        <div className="w-full rounded-3xl border border-border bg-white p-8 text-center shadow-sm">
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-muted-foreground">Tutor no encontrado</p>
+          <h2 className="mt-3 text-2xl font-bold text-foreground">No pudimos cargar este perfil</h2>
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">{errorMsg || "El perfil solicitado no está disponible."}</p>
+          <div className="mt-6 flex justify-center gap-3">
+            <Link href="/dashboard">
+              <Button className="rounded-xl px-5">Volver al inicio</Button>
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }
 
+  const displayName = userProfile?.display_name || "Perfil disponible";
+  const bio = tutor.headline || userProfile?.bio || "Especialista disponible";
+  const skills = [...(tutor.specialties || []), ...(tutor.categories || [])];
+
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <div className="relative">
-        <div className="relative h-40 w-full overflow-hidden rounded-2xl" style={{ backgroundColor: '#C4783A' }}>
-          <div className="absolute inset-0" style={{ backgroundColor: 'rgba(196, 120, 58, 0.20)' }} />
+    <div className="mx-auto max-w-4xl px-4 py-6 lg:py-8">
+      <div className="overflow-hidden rounded-[28px] border border-border bg-white shadow-sm">
+        <div className="relative h-44 overflow-hidden bg-[linear-gradient(135deg,#0f172a_0%,#1d4ed8_55%,#dbeafe_100%)]">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.24),transparent_34%)]" />
+          <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white to-transparent" />
         </div>
-        <div className="absolute left-6 -bottom-8">
-          <Avatar className="h-32 w-32 border-4 shadow-lg" style={{ borderColor: '#FFFFFF' }}>
-            <AvatarImage
-              src={userProfile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${tutor.user_id}`}
-              alt={userProfile?.display_name || "Perfil disponible"}
-            />
-            <AvatarFallback>{(userProfile?.display_name || "PD").substring(0, 2).toUpperCase()}</AvatarFallback>
-          </Avatar>
-        </div>
-      </div>
 
-      <div className="rounded-2xl border p-6 pt-10 shadow-sm" style={{ backgroundColor: '#FFFFFF', borderColor: 'rgba(56, 36, 13, 0.28)' }}>
-        <div className="flex flex-col md:flex-row items-start gap-6">
-          <div className="flex-1 pl-2">
-            <div className="ml-0 md:ml-0">
-              <h1 className="text-2xl font-bold" style={{ color: '#38240D', fontFamily: 'var(--font-main)' }}>{userProfile?.display_name || "Perfil disponible"}</h1>
-              <p className="text-sm" style={{ color: 'rgba(56, 36, 13, 0.60)', fontFamily: 'var(--font-main)' }}>{tutor.headline || userProfile?.bio || 'Especialista disponible'}</p>
+        <div className="relative px-6 pb-6 pt-0 lg:px-8 lg:pb-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="-mt-20 flex flex-col gap-5 lg:flex-row lg:items-end lg:gap-6">
+              <Avatar className="h-32 w-32 border-4 border-white shadow-[0_18px_40px_rgba(15,23,42,0.22)]">
+                <AvatarImage src={userProfile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${tutor.user_id}`} alt={displayName} />
+                <AvatarFallback className="bg-[#0f172a] text-white text-2xl">{displayName.slice(0, 2).toUpperCase()}</AvatarFallback>
+              </Avatar>
+
+              <div className="max-w-2xl pb-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-xs font-bold uppercase tracking-[0.24em] text-muted-foreground">Perfil público</p>
+                  <Badge className={tutor.is_available ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}>
+                    {tutor.is_available ? "Disponible" : "No disponible"}
+                  </Badge>
+                </div>
+                <h1 className="mt-2 text-3xl font-bold tracking-tight text-foreground">{displayName}</h1>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">{userProfile?.location_name || "Sin ubicación pública"}</p>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-foreground/80">{bio}</p>
+              </div>
             </div>
 
-            <div className="mt-4 flex gap-4">
-              <div className="flex flex-col">
-                <span className="text-sm" style={{ color: 'rgba(56, 36, 13, 0.60)', fontFamily: 'var(--font-main)' }}>Clases dadas</span>
-                <span className="font-semibold" style={{ color: 'rgba(56, 36, 13, 0.80)', fontFamily: 'var(--font-main)' }}>—</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-sm" style={{ color: 'rgba(56, 36, 13, 0.60)', fontFamily: 'var(--font-main)' }}>Rating</span>
-                <span className="text-sm font-semibold" style={{ color: 'rgba(56, 36, 13, 0.80)', fontFamily: 'var(--font-main)' }}>
-                  {tutor.average_rating != null ? `${Number(tutor.average_rating).toFixed(1)} / 5` : "Sin valoraciones"}
-                </span>
-                <span className="text-xs" style={{ color: 'rgba(56, 36, 13, 0.50)', fontFamily: 'var(--font-main)' }}>
-                  {tutor.ratings_count ? `${tutor.ratings_count} valoraciones` : ""}
-                </span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-sm" style={{ color: 'rgba(56, 36, 13, 0.60)', fontFamily: 'var(--font-main)' }}>Años exp.</span>
-                <span className="font-semibold" style={{ color: 'rgba(56, 36, 13, 0.80)', fontFamily: 'var(--font-main)' }}>{tutor.years_experience ?? 1}</span>
-              </div>
+            <div className="flex flex-wrap gap-3 pb-2">
+              <MessageButton userId={tutor.user_id} />
+              <Link href={`/messages?userId=${tutor.user_id}`}>
+                <Button variant="outline" className="rounded-xl border-border px-5">
+                  <MessageCircle className="mr-2 h-4 w-4" />
+                  Abrir chat
+                </Button>
+              </Link>
             </div>
           </div>
 
-          <div className="shrink-0 w-full md:w-auto">
-            <MessageButton userId={tutor.user_id} />
-          </div>
-        </div>
-
-        <div className="mt-6">
-          <h3 className="mb-2 text-sm font-semibold" style={{ color: 'rgba(56, 36, 13, 0.80)', fontFamily: 'var(--font-main)' }}>Habilidades</h3>
-          <div className="flex flex-wrap gap-2">
-            {((tutor.specialties || []).concat(tutor.categories || [])).map((s: string, i: number) => (
-              <span key={i} className="rounded-full border px-3 py-1 text-sm" style={{ borderColor: 'rgba(196, 120, 58, 0.20)', backgroundColor: 'rgba(196, 120, 58, 0.10)', color: '#C4783A', fontFamily: 'var(--font-main)' }}>{s}</span>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Navegación por Pestañas */}
-      <Tabs defaultValue="about" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-3" style={{ backgroundColor: 'rgba(56, 36, 13, 0.05)' }}>
-          <TabsTrigger value="about">Sobre Mí</TabsTrigger>
-          <TabsTrigger value="skills">Habilidades</TabsTrigger>
-          <TabsTrigger value="reviews">Reseñas</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="about" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle style={{ color: '#38240D', fontFamily: 'var(--font-main)' }}>Biografía</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="whitespace-pre-wrap leading-relaxed" style={{ color: 'rgba(56, 36, 13, 0.60)', fontFamily: 'var(--font-main)' }}>
-                {userProfile?.bio || "Este tutor aún no ha añadido una biografía."}
+          <div className="mt-8 grid gap-3 md:grid-cols-4">
+            <div className="rounded-2xl border border-border bg-background p-4">
+              <Clock className="h-4 w-4 text-primary" />
+              <p className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Tarifa</p>
+              <p className="mt-2 text-lg font-bold text-foreground">${tutor.hourly_rate || 0}</p>
+            </div>
+            <div className="rounded-2xl border border-border bg-background p-4">
+              <Star className="h-4 w-4 text-primary" />
+              <p className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Rating</p>
+              <p className="mt-2 text-lg font-bold text-foreground">
+                {tutor.average_rating != null ? `${Number(tutor.average_rating).toFixed(1)} / 5` : "Nuevo"}
               </p>
-            </CardContent>
-          </Card>
+              {tutor.ratings_count ? <p className="text-xs text-muted-foreground">{tutor.ratings_count} valoraciones</p> : null}
+            </div>
+            <div className="rounded-2xl border border-border bg-background p-4">
+              <MapPin className="h-4 w-4 text-primary" />
+              <p className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Experiencia</p>
+              <p className="mt-2 text-lg font-bold text-foreground">{tutor.years_experience ?? 1} años</p>
+            </div>
+            <div className="rounded-2xl border border-border bg-background p-4">
+              <MessageCircle className="h-4 w-4 text-primary" />
+              <p className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Ubicación</p>
+              <p className="mt-2 text-lg font-bold text-foreground">{userProfile?.location_name || "Sin dato"}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <Tabs defaultValue="about" className="mt-6">
+        <TabsList className="grid w-full max-w-xl grid-cols-3 rounded-2xl border border-border bg-white p-1 shadow-sm">
+          <TabsTrigger value="about" className="rounded-xl data-[state=active]:bg-[#0f172a] data-[state=active]:text-white">Sobre mí</TabsTrigger>
+          <TabsTrigger value="skills" className="rounded-xl data-[state=active]:bg-[#0f172a] data-[state=active]:text-white">Habilidades</TabsTrigger>
+          <TabsTrigger value="reviews" className="rounded-xl data-[state=active]:bg-[#0f172a] data-[state=active]:text-white">Reseñas</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="about" className="mt-4">
+          <div className="rounded-[28px] border border-border bg-white p-6 shadow-sm">
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-muted-foreground">Biografía</p>
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-foreground/80">{userProfile?.bio || "Este tutor aún no ha añadido una biografía."}</p>
+          </div>
         </TabsContent>
-        
+
         <TabsContent value="skills" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle style={{ color: '#38240D', fontFamily: 'var(--font-main)' }}>Habilidades y Especialidades</CardTitle>
-              <CardDescription style={{ color: 'rgba(56, 36, 13, 0.60)', fontFamily: 'var(--font-main)' }}>Materias y tecnologías que enseña este tutor</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {((tutor.specialties?.length || 0) > 0 || (tutor.categories?.length || 0) > 0) ? (
-                  [...(tutor.specialties || []), ...(tutor.categories || [])].map((skill, index) => (
-                    <Badge key={index} variant="secondary" className="border px-3 py-1 text-sm" style={{ borderColor: 'rgba(196, 120, 58, 0.20)', backgroundColor: 'rgba(196, 120, 58, 0.10)', color: '#C4783A', fontFamily: 'var(--font-main)' }}>
-                      {skill}
-                    </Badge>
-                  ))
-                ) : (
-                  <p className="text-white/50">No ha especificado habilidades.</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <div className="rounded-[28px] border border-border bg-white p-6 shadow-sm">
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-muted-foreground">Habilidades y especialidades</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {skills.length > 0 ? (
+                skills.map((skill, index) => (
+                  <Badge key={`${skill}-${index}`} variant="secondary" className="rounded-full px-3 py-1">{skill}</Badge>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">No ha especificado habilidades.</p>
+              )}
+            </div>
+          </div>
         </TabsContent>
 
         <TabsContent value="reviews" className="mt-4">
@@ -166,11 +169,12 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
               initialAverage={tutor.average_rating}
               initialCount={tutor.ratings_count ?? 0}
             />
-          <Card>
-            <CardContent className="py-10 text-center text-white/50">
-              <p>Aún no hay reseñas para mostrar.</p>
-            </CardContent>
-          </Card>
+            <div className="rounded-[28px] border border-border bg-white p-6 shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-muted-foreground">Reseñas</p>
+              <div className="mt-4 rounded-2xl border border-dashed border-border bg-background p-8 text-center text-sm text-muted-foreground">
+                Aún no hay reseñas escritas para mostrar.
+              </div>
+            </div>
           </div>
         </TabsContent>
       </Tabs>

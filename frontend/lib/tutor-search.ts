@@ -181,6 +181,10 @@ function normalizeText(value: string) {
     .trim();
 }
 
+export function normalizeSearchText(value: string) {
+  return normalizeText(value);
+}
+
 function singularize(token: string) {
   if (token.length <= 3) {
     return token;
@@ -296,6 +300,39 @@ export function buildTutorOccupationLabel(tutor: TutorSearchRecord) {
   }
 
   return `${rawText.slice(0, 69).trim()}...`;
+}
+
+export function matchesKeywordSearch(text: string, rawQuery: string) {
+  const query = normalizeText(rawQuery);
+  if (!query) {
+    return true;
+  }
+
+  const haystack = normalizeText(text);
+  const expandedQueryTokens = expandTokens(query);
+  const haystackTokens = new Set(haystack.split(" ").map(singularize));
+
+  if (haystack.includes(query)) {
+    return true;
+  }
+
+  return expandedQueryTokens.some((token) => {
+    if (!token) {
+      return false;
+    }
+
+    if (haystack.includes(token)) {
+      return true;
+    }
+
+    const tokenized = singularize(token);
+    if (haystackTokens.has(tokenized)) {
+      return true;
+    }
+
+    const synonymGroup = SEARCH_SYNONYMS[tokenized];
+    return synonymGroup ? synonymGroup.some((synonym) => haystack.includes(normalizeText(synonym))) : false;
+  });
 }
 
 export type DiscoveredTopic = {

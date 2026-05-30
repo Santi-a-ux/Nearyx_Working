@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { CalendarDays, Clock, User } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 interface Booking {
   id: string;
@@ -25,11 +27,11 @@ interface Session {
   role: string;
 }
 
-const STATUS_LABEL: Record<string, { label: string; color: string }> = {
-  pending:   { label: "Pendiente",  color: "#C4783A" },
-  confirmed: { label: "Confirmada", color: "#4ade80" },
-  cancelled: { label: "Cancelada",  color: "#f87171" },
-  completed: { label: "Completada", color: "rgba(56,36,13,0.4)" },
+const STATUS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+  pending:   { label: "Pendiente",  variant: "default" },
+  confirmed: { label: "Confirmada", variant: "secondary" },
+  cancelled: { label: "Destructive", variant: "destructive" },
+  completed: { label: "Completada", variant: "outline" },
 };
 
 export default function BookingsPage() {
@@ -77,61 +79,59 @@ export default function BookingsPage() {
     });
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-4">
+    <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold" style={{ color: "#38240D", fontFamily: "var(--font-main)" }}>
-          Mis reservas
-        </h1>
-        <p className="mt-1 text-sm" style={{ color: "rgba(56,36,13,0.55)", fontFamily: "var(--font-main)" }}>
-          Historial de sesiones agendadas
-        </p>
+        <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">Agenda</p>
+        <h1 className="mt-1 text-2xl font-bold text-foreground">Mis reservas</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Historial de sesiones agendadas</p>
       </div>
 
       {loading ? (
-        <p className="text-sm" style={{ color: "rgba(56,36,13,0.5)" }}>Cargando...</p>
+        <Card className="p-0">
+          <CardContent className="p-6 text-sm text-muted-foreground">Cargando...</CardContent>
+        </Card>
       ) : bookings.length === 0 ? (
-        <div className="rounded-2xl border p-10 text-center"
-          style={{ borderColor: "rgba(56,36,13,0.12)", backgroundColor: "rgba(56,36,13,0.03)" }}>
-          <CalendarDays className="mx-auto mb-3 h-10 w-10" style={{ color: "rgba(56,36,13,0.25)" }} />
-          <p className="text-sm font-medium" style={{ color: "rgba(56,36,13,0.5)" }}>No tienes reservas aún</p>
-        </div>
+        <Card className="border-dashed p-0">
+          <CardContent className="flex flex-col items-center gap-3 p-10 text-center">
+            <CalendarDays className="h-10 w-10 text-muted-foreground/40" />
+            <p className="text-sm font-medium text-muted-foreground">No tienes reservas aún</p>
+          </CardContent>
+        </Card>
       ) : (
         <div className="space-y-3">
           {bookings.map((b) => {
-            const s = STATUS_LABEL[b.status] ?? { label: b.status, color: "#C4783A" };
+            const s = STATUS[b.status] ?? { label: b.status, variant: "outline" as const };
             return (
-              <div key={b.id} className="rounded-2xl border p-4 shadow-sm"
-                style={{ borderColor: "rgba(56,36,13,0.12)", backgroundColor: "#fff" }}>
-                <div className="flex items-start justify-between gap-4">
+              <Card key={b.id} className="p-0 shadow-sm">
+                <CardContent className="flex items-start justify-between gap-4 p-4">
                   <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10 shrink-0">
+                    <Avatar className="h-11 w-11 shrink-0 border border-border">
                       <AvatarImage src={b.otherAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${b.otherName}`} />
-                      <AvatarFallback style={{ backgroundColor: "rgba(196,120,58,0.15)", color: "#C4783A" }}>
+                      <AvatarFallback className="bg-[#95C9FC] text-[#10314f] font-semibold">
                         {b.otherName.slice(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <div className="space-y-1">
-                      <div className="flex items-center gap-1.5 text-xs" style={{ color: "rgba(56,36,13,0.45)" }}>
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                         <User className="h-3 w-3" />
                         <span>{b.otherRole}</span>
                       </div>
-                      <p className="text-sm font-semibold" style={{ color: "#38240D" }}>{b.otherName}</p>
-                      <div className="flex items-center gap-2 text-xs" style={{ color: "rgba(56,36,13,0.55)" }}>
-                        <CalendarDays className="h-3.5 w-3.5 shrink-0" style={{ color: "#C4783A" }} />
+                      <p className="text-sm font-semibold text-foreground">{b.otherName}</p>
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <CalendarDays className="h-3.5 w-3.5 shrink-0 text-primary" />
                         <span>{fmt(b.scheduled_start)}</span>
                       </div>
-                      <div className="flex items-center gap-2 text-xs" style={{ color: "rgba(56,36,13,0.45)" }}>
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                         <Clock className="h-3.5 w-3.5 shrink-0" />
                         <span>Hasta: {fmt(b.scheduled_end)}</span>
                       </div>
                     </div>
                   </div>
-                  <span className="shrink-0 rounded-full px-3 py-1 text-xs font-semibold"
-                    style={{ backgroundColor: `${s.color}22`, color: s.color }}>
+                  <Badge variant={s.variant} className="shrink-0 rounded-full">
                     {s.label}
-                  </span>
-                </div>
-              </div>
+                  </Badge>
+                </CardContent>
+              </Card>
             );
           })}
         </div>
