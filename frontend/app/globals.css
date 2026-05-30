@@ -263,7 +263,7 @@
 
   body {
     @apply bg-background text-foreground;
-    background-color: #f8fbff;
+    background-color: #ffffff;
     color: #282828;
     min-block-size: 100%;
     font-family: var(--font-body) !important;

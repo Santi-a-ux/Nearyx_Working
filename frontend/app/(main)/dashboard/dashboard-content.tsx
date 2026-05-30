@@ -353,10 +353,10 @@ export function DashboardContent() {
           </DialogContent>
         </Dialog>
 
-        <div className="space-y-3">
+        <div className="bg-white">
           {searchQuery ? (
             filteredPosts.length > 0 ? null : (
-              <Card className="border-dashed shadow-sm">
+              <Card className="rounded-none border-0 border-b border-dashed border-[#eef2f7] bg-white shadow-none last:border-b-0">
                 <CardContent className="p-5 text-sm text-muted-foreground">
                 No hay publicaciones que coincidan con “{searchQuery}”. Prueba con otra palabra o temática.
                 </CardContent>
@@ -366,16 +366,16 @@ export function DashboardContent() {
 
           {isLoading && posts.length === 0 ? (
             Array.from({ length: 3 }).map((_, index) => (
-              <Card key={index} className="p-0 shadow-sm">
+              <Card key={index} className="rounded-none border-0 border-b border-[#eef2f7] bg-white shadow-none last:border-b-0">
                 <CardContent className="p-4">
-                <div className="h-6 w-48 rounded bg-muted" />
-                <div className="mt-4 h-24 rounded bg-muted" />
+                <div className="h-6 w-48 rounded bg-[#eef4ff]" />
+                <div className="mt-4 h-24 rounded bg-[#f3f6fb]" />
                 </CardContent>
               </Card>
             ))
           ) : (
             filteredPosts.map((post: FeedPost, index: number) => (
-              <PostCard key={post.id} post={post} toneIndex={index} />
+              <PostCard key={post.id} post={post} toneIndex={index} isLast={index === filteredPosts.length - 1} />
             ))
           )}
         </div>
@@ -440,33 +440,41 @@ export function DashboardContent() {
   );
 }
 
-function PostCard({ post, toneIndex }: { post: FeedPost; toneIndex: number }) {
+function PostCard({ post, toneIndex, isLast }: { post: FeedPost; toneIndex: number; isLast: boolean }) {
   const [liked, setLiked] = useState(false);
   const [likes, setLikes] = useState(12 + toneIndex);
   const isTutor = post.author_role === "Tutor" || /tutor/i.test(post.author_name || "");
 
   return (
-    <Card className="p-0 shadow-sm">
-      <CardContent className="p-4">
+    <article className={cn("group border-b border-[#eef2f7] bg-white transition-all hover:bg-[#f8fbff] hover:shadow-[0_1px_0_rgba(217,227,244,0.35),0_10px_24px_rgba(15,23,42,0.06)] hover:rounded-2xl", isLast && "border-b-0")}>
+      <div className="p-4 transition-colors">
         <div className="flex items-start gap-3">
           <UserAvatar name={post.author_name || "Usuario"} size="md" avatarUrl={post.author_avatar} />
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-sm font-semibold text-foreground">{post.author_name || "Usuario"}</h3>
-              <span className="text-xs text-muted-foreground">{new Intl.DateTimeFormat("es-CO", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(post.created_at))}</span>
-              <Badge variant={isTutor ? "default" : "secondary"} className={cn("rounded-full px-2 py-0.5 text-[11px]", isTutor ? "bg-[#95C9FC] text-[#10314f]" : "bg-secondary text-secondary-foreground")}>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <h3 className="text-sm font-semibold text-[#111827]">{post.author_name || "Usuario"}</h3>
+              <span className="text-xs text-[#6b7280]">•</span>
+              <span className="text-xs text-[#6b7280]">{new Intl.DateTimeFormat("es-CO", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(post.created_at))}</span>
+              <Badge
+                variant={isTutor ? "default" : "secondary"}
+                className={cn(
+                  "rounded-full px-2 py-0.5 text-[11px]",
+                  isTutor ? "bg-[#eaf1ff] text-[#0058ff]" : "bg-[#f3f6fb] text-[#374151]"
+                )}
+              >
                 {isTutor ? "Tutor" : "Estudiante"}
               </Badge>
             </div>
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-foreground">{post.content}</p>
+
+            <p className="mt-2 whitespace-pre-wrap text-[15px] leading-6 text-[#111827]">{post.content}</p>
 
             {post.image_url ? (
-              <div className="mt-4 overflow-hidden rounded-2xl border border-[rgba(253,251,212,0.10)] bg-[rgba(253,251,212,0.03)]">
+              <div className="mt-3 overflow-hidden rounded-2xl border border-[#d9e3f4] bg-[#f8fbff]">
                 <img src={post.image_url} alt={post.author_name || "Publicación"} className="max-h-[32rem] w-full object-cover" />
               </div>
             ) : null}
 
-            <div className="mt-4 flex items-center gap-4 text-xs text-muted-foreground">
+            <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-[#4b5563]">
               <Button
                 type="button"
                 onClick={() => {
@@ -477,23 +485,23 @@ function PostCard({ post, toneIndex }: { post: FeedPost; toneIndex: number }) {
                 }}
                 variant="ghost"
                 size="sm"
-                className="h-8 rounded-full px-2 text-xs transition-colors hover:bg-muted hover:text-primary"
+                className="h-8 rounded-full border border-transparent px-3 text-xs text-[#4b5563] transition-colors hover:border-[#d9e3f4] hover:bg-[#eaf1ff] hover:text-[#0058ff]"
               >
-                <Heart className={cn("h-4 w-4", liked && "fill-current text-primary")} />
+                <Heart className={cn("h-4 w-4", liked && "fill-current text-[#0058ff]")} />
                 {likes}
               </Button>
-              <Button type="button" variant="ghost" size="sm" className="h-8 rounded-full px-2 text-xs transition-colors hover:bg-muted hover:text-primary">
+              <Button type="button" variant="ghost" size="sm" className="h-8 rounded-full border border-transparent px-3 text-xs text-[#4b5563] transition-colors hover:border-[#d9e3f4] hover:bg-[#eaf1ff] hover:text-[#0058ff]">
                 <MessageSquare className="h-4 w-4" />
                 Comentar
               </Button>
-              <Button type="button" variant="ghost" size="sm" className="h-8 rounded-full px-2 text-xs transition-colors hover:bg-muted hover:text-primary">
+              <Button type="button" variant="ghost" size="sm" className="h-8 rounded-full border border-transparent px-3 text-xs text-[#4b5563] transition-colors hover:border-[#d9e3f4] hover:bg-[#eaf1ff] hover:text-[#0058ff]">
                 <Share2 className="h-4 w-4" />
                 Compartir
               </Button>
             </div>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </article>
   );
 }
