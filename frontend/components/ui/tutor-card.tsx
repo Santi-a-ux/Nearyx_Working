@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/user-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Star } from "lucide-react";
@@ -39,12 +39,9 @@ export function TutorCard({
     <article className="group overflow-hidden rounded-2xl border border-white/8 bg-white/5 shadow-lg transition-all duration-200 hover:-translate-y-1 hover:border-primary/20 hover:bg-white/8 hover:shadow-primary/10">
       <div className="flex gap-4 p-4">
         <div className="relative">
-          <Avatar className="h-14 w-14">
-            <AvatarImage src={avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user_id}`} alt={name} />
-            <AvatarFallback>{name.substring(0, 2).toUpperCase()}</AvatarFallback>
-          </Avatar>
+          <UserAvatar name={name} size="lg" avatarUrl={avatar_url} />
           {is_available ? (
-            <span className="absolute right-0 bottom-0 h-3 w-3 rounded-full bg-green-500 ring-2 ring-white" />
+            <span className="absolute right-0 bottom-0 h-3 w-3 rounded-full bg-green-500 ring-2 ring-[#C6E2FE]" />
           ) : null}
         </div>
         <div className="flex-1">

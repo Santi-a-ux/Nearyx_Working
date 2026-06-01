@@ -1,13 +1,17 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
-import { loginAction } from "@/lib/auth";
-import { toast } from "sonner";
 import Link from "next/link";
-import { Loader2 } from "lucide-react";
+import { Loader2, Lock, Mail } from "lucide-react";
+import { toast } from "sonner";
+
+import { loginAction } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { IconMail, IconLock } from "@/components/icons/TmIcons";
+import { cn } from "@/lib/utils";
+
+const inputClass =
+  "h-12 rounded-xl border-border bg-[#F8FBFF] pl-10 pr-4 text-[#10314F] shadow-sm placeholder:text-muted-foreground focus-visible:border-[#95C9FC] focus-visible:ring-2 focus-visible:ring-[#C6E2FE]/50";
 
 export default function LoginPage() {
   const [state, formAction, isPending] = useActionState(loginAction, null);
@@ -19,77 +23,61 @@ export default function LoginPage() {
   }, [state]);
 
   return (
-    <div style={{ fontFamily: "var(--font-body)" }}>
+    <div>
       <div className="mb-8">
-        <h1 className="mb-1 text-2xl font-semibold tracking-tight text-[var(--ui-dark-panel-text)]" style={{ fontFamily: "var(--font-heading)" }}>
-          Bienvenido de vuelta
-        </h1>
-        <p className="text-sm text-[rgba(248,251,255,0.72)]">Ingresa tus datos para continuar</p>
+        <h1 className="mb-1 text-2xl font-bold tracking-tight text-[#10314F]">Bienvenido de vuelta</h1>
+        <p className="text-sm text-muted-foreground">Ingresa tus datos para continuar</p>
       </div>
 
-      <form action={formAction} className="space-y-4" style={{ fontFamily: "var(--font-body)" }}>
+      <form action={formAction} className="space-y-4">
         <div className="space-y-1.5">
-          <label className="text-xs font-bold uppercase tracking-[0.14em] text-[rgba(248,251,255,0.72)]">Correo electrónico</label>
+          <label className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">Correo electrónico</label>
           <div className="relative">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[rgba(248,251,255,0.42)]">
-              <IconMail className="h-4 w-4" />
-            </div>
-            <Input
-              name="email"
-              type="email"
-              placeholder="correo@ejemplo.com"
-              required
-              disabled={isPending}
-              className="h-12 rounded-xl border border-[rgba(148,163,184,0.35)] bg-[rgba(148,163,184,0.10)] pl-10 pr-4 text-sm text-[var(--ui-dark-panel-text)] shadow-none outline-none transition-all placeholder:text-[rgba(248,251,255,0.55)] focus:border-[var(--primary)] focus:shadow-[0_0_0_3px_rgba(0,88,255,0.18)] disabled:opacity-50"
-            />
+            <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#2563EB]" />
+            <Input name="email" type="email" placeholder="correo@ejemplo.com" required disabled={isPending} className={inputClass} />
           </div>
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs font-bold uppercase tracking-[0.14em] text-[rgba(248,251,255,0.72)]">Contraseña</label>
+          <label className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">Contraseña</label>
           <div className="relative">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[rgba(248,251,255,0.42)]">
-              <IconLock className="h-4 w-4" />
-            </div>
-            <Input
-              name="password"
-              type="password"
-              placeholder="••••••••"
-              required
-              disabled={isPending}
-              className="h-12 rounded-xl border border-[rgba(148,163,184,0.35)] bg-[rgba(148,163,184,0.10)] pl-10 pr-4 text-sm text-[var(--ui-dark-panel-text)] shadow-none outline-none transition-all placeholder:text-[rgba(248,251,255,0.55)] focus:border-[var(--primary)] focus:shadow-[0_0_0_3px_rgba(0,88,255,0.18)] disabled:opacity-50"
-            />
+            <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#2563EB]" />
+            <Input name="password" type="password" placeholder="••••••••" required disabled={isPending} className={inputClass} />
           </div>
         </div>
 
-        {state?.error && <div className="rounded-xl border border-red-500/25 bg-red-500/12 px-4 py-3 text-xs text-red-300">{state.error}</div>}
+        {state?.error ? (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700">{state.error}</div>
+        ) : null}
 
         <Button
           type="submit"
           disabled={isPending}
-          className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[var(--primary)] px-4 text-sm font-bold text-[var(--primary-foreground)] shadow-[0_10px_22px_rgba(0,88,255,0.35)] transition-all hover:bg-[var(--brand-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#95C9FC] text-sm font-bold text-[#10314F] hover:bg-[#7FB8F5]"
         >
-          {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+          {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           {isPending ? "Entrando..." : "Entrar"}
         </Button>
       </form>
 
       <div className="my-6 flex items-center gap-3">
-        <div className="h-px flex-1 bg-[rgba(148,163,184,0.35)]" />
-        <span className="text-xs text-[rgba(248,251,255,0.55)]">o</span>
-        <div className="h-px flex-1 bg-[rgba(148,163,184,0.35)]" />
+        <div className="h-px flex-1 bg-border" />
+        <span className="text-xs text-muted-foreground">o</span>
+        <div className="h-px flex-1 bg-border" />
       </div>
 
       <Link
         href="/register"
-        className="inline-flex h-12 w-full items-center justify-center rounded-xl border border-[rgba(148,163,184,0.35)] bg-[rgba(148,163,184,0.10)] px-3 text-sm font-bold text-[rgba(248,251,255,0.9)] transition-all hover:border-[rgba(96,165,250,0.7)] hover:bg-[rgba(96,165,250,0.12)]"
+        className={cn(
+          "inline-flex h-12 w-full items-center justify-center rounded-xl border border-border bg-[#EEF6FF] px-3 text-sm font-bold text-[#2563EB] transition-colors hover:bg-[#E0EFFF]"
+        )}
       >
         Crear cuenta nueva
       </Link>
 
-      <p className="mt-6 text-center text-xs text-[rgba(248,251,255,0.62)]">
+      <p className="mt-6 text-center text-xs text-muted-foreground">
         ¿No tienes cuenta?{" "}
-        <Link href="/register" className="font-bold text-[var(--brand-soft)] transition-colors hover:text-[var(--primary)]">
+        <Link href="/register" className="font-bold text-[#2563EB] hover:underline">
           Regístrate gratis
         </Link>
       </p>

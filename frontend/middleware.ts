@@ -8,6 +8,7 @@ export function middleware(request: NextRequest) {
   // Rutas que requieren autenticación
   const isProtectedRoute = pathname.startsWith('/dashboard') || 
                            pathname.startsWith('/explore') || 
+                           pathname.startsWith('/bookings') || 
                            pathname.startsWith('/messages') ||
                            pathname.startsWith('/profile') ||
                            pathname.startsWith('/tutor')
@@ -30,6 +31,7 @@ export const config = {
   matcher: [
     '/dashboard/:path*',
     '/explore/:path*',
+    '/bookings/:path*',
     '/messages/:path*',
     '/profile/:path*',
     '/tutor/:path*',

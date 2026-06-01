@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import or_
 from typing import List
 from app.database import get_db
 from app.models import Booking
@@ -41,12 +42,8 @@ async def get_my_bookings(
 ):
     user_id = uuid.UUID(current_user["user_id"])
     role = current_user.get("role")
-    
-    stmt = select(Booking)
-    if role == "tutor":
-        stmt = stmt.where(Booking.tutor_id == user_id)
-    else:
-        stmt = stmt.where(Booking.student_id == user_id)
+    # Return bookings where the current user participates either as tutor or student
+    stmt = select(Booking).where(or_(Booking.tutor_id == user_id, Booking.student_id == user_id))
         
     result = await db.execute(stmt)
     return result.scalars().all()

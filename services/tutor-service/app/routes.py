@@ -4,8 +4,15 @@ from sqlalchemy.future import select
 from sqlalchemy import func
 from typing import List, Optional
 from app.database import get_db
-from app.models import TutorProfile
-from app.schemas import TutorProfileCreate, TutorProfileUpdate, TutorProfileOut, TutorListOut
+from app.models import TutorProfile, TutorRating
+from app.schemas import (
+    TutorProfileCreate,
+    TutorProfileUpdate,
+    TutorProfileOut,
+    TutorListOut,
+    TutorRatingIn,
+    TutorRatingOut,
+)
 from app.dependencies import require_tutor_role, get_current_user
 import uuid
 
@@ -210,3 +217,85 @@ async def get_tutor_profile_by_user_id(
         raise HTTPException(status_code=404, detail='Tutor not found')
 
     return _format_profile_out(row.TutorProfile, lat=row.lat, lng=row.lng)
+
+
+async def _build_rating_out(
+    tutor_user_id: uuid.UUID,
+    db: AsyncSession,
+    rater_user_id: Optional[uuid.UUID] = None,
+) -> TutorRatingOut:
+    stats_stmt = select(
+        func.avg(TutorRating.rating).label("average_rating"),
+        func.count(TutorRating.id).label("ratings_count"),
+    ).where(TutorRating.tutor_user_id == tutor_user_id)
+    stats_result = await db.execute(stats_stmt)
+    stats_row = stats_result.one()
+
+    my_rating = None
+    if rater_user_id is not None:
+        my_stmt = select(TutorRating.rating).where(
+            TutorRating.tutor_user_id == tutor_user_id,
+            TutorRating.rater_user_id == rater_user_id,
+        )
+        my_result = await db.execute(my_stmt)
+        my_rating = my_result.scalar_one_or_none()
+
+    avg_value = stats_row.average_rating
+    return TutorRatingOut(
+        my_rating=my_rating,
+        average_rating=float(avg_value) if avg_value is not None else None,
+        ratings_count=int(stats_row.ratings_count or 0),
+    )
+
+
+@router.get('/{user_id}/rating', response_model=TutorRatingOut)
+async def get_tutor_rating(
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    exists_stmt = select(TutorProfile.user_id).where(TutorProfile.user_id == user_id)
+    exists_result = await db.execute(exists_stmt)
+    if exists_result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail='Tutor not found')
+
+    current_user_id = uuid.UUID(current_user['user_id'])
+    return await _build_rating_out(user_id, db, current_user_id)
+
+
+@router.put('/{user_id}/rating', response_model=TutorRatingOut)
+async def put_tutor_rating(
+    user_id: uuid.UUID,
+    rating_in: TutorRatingIn,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    exists_stmt = select(TutorProfile.user_id).where(TutorProfile.user_id == user_id)
+    exists_result = await db.execute(exists_stmt)
+    if exists_result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail='Tutor not found')
+
+    rater_user_id = uuid.UUID(current_user['user_id'])
+    if rater_user_id == user_id:
+        raise HTTPException(status_code=400, detail='No puedes calificar tu propio perfil')
+
+    rating_stmt = select(TutorRating).where(
+        TutorRating.tutor_user_id == user_id,
+        TutorRating.rater_user_id == rater_user_id,
+    )
+    rating_result = await db.execute(rating_stmt)
+    existing = rating_result.scalar_one_or_none()
+
+    if existing:
+        existing.rating = rating_in.rating
+    else:
+        db.add(
+            TutorRating(
+                tutor_user_id=user_id,
+                rater_user_id=rater_user_id,
+                rating=rating_in.rating,
+            )
+        )
+
+    await db.commit()
+    return await _build_rating_out(user_id, db, rater_user_id)

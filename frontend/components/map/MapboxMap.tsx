@@ -189,7 +189,7 @@ export default function MapboxMap({ topicFilter, searchResults, onTutorsFound }:
       const lat = (tutor.lat ?? tutor.latitude) as number;
       const lng = (tutor.lng ?? tutor.longitude) as number;
       const name = tutor.display_name ?? tutor.full_name ?? 'Perfil disponible';
-      const avatar = tutor.avatar_url ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${tutor.user_id}`;
+      const avatar = tutor.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${tutor.user_id}`;
       const dist = tutor.distance_km;
       const distLabel = dist != null ? (dist < 1 ? `${Math.round(dist * 1000)}m` : `${dist.toFixed(1)}km`) : '';
 
@@ -197,7 +197,7 @@ export default function MapboxMap({ topicFilter, searchResults, onTutorsFound }:
       el.style.cssText = 'display:flex;flex-direction:column;align-items:center;cursor:pointer;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.25));';
       el.innerHTML = `
         <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
-          <div style="width:44px;height:44px;border-radius:50%;border:3px solid white;box-shadow:0 4px 16px rgba(108,99,255,0.4);background-image:url('${avatar}');background-size:cover;background-position:center;position:relative;">
+          <div style="width:44px;height:44px;border-radius:50%;border:3px solid white;box-shadow:0 0 0 3px rgba(198,226,254,0.55),0 8px 20px rgba(37,99,235,0.22);background-image:url('${avatar}');background-size:cover;background-position:center;position:relative;">
             <div style="position:absolute;bottom:1px;right:1px;width:10px;height:10px;background:#34d399;border-radius:50%;border:2px solid white;"></div>
           </div>
           ${distLabel ? `<div style="background:white;color:#6C63FF;font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px;box-shadow:0 2px 8px rgba(0,0,0,0.15);white-space:nowrap;font-family:sans-serif;">📍 ${distLabel}</div>` : ''}
@@ -208,17 +208,17 @@ export default function MapboxMap({ topicFilter, searchResults, onTutorsFound }:
       const popup = new mapboxgl.Popup({ offset: 60, closeButton: false, maxWidth: '220px' }).setHTML(`
         <div style="padding:12px;font-family:'Poppins', sans-serif;min-width:200px;">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-            <img src="${avatar}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid #6C63FF" />
+            <img src="${avatar}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid white;box-shadow:0 0 0 2px rgba(198,226,254,0.55),0 6px 16px rgba(37,99,235,0.18)" />
             <div>
               <strong style="font-size:13px;color:#111;display:block">${name}</strong>
               ${distLabel ? `<span style="font-size:11px;color:#6C63FF;font-weight:600">📍 A ${distLabel} de ti</span>` : ''}
             </div>
           </div>
-          <p style="font-size:11px;color:#666;margin:6px 0">${tutor.specialties?.slice(0, 2).join(' · ') ?? 'Tutor'}</p>
+          <p style="font-size:11px;color:#666;margin:6px 0">${tutor.specialties?.slice(0, 2).join(' · ') ?? 'Experto'}</p>
           <div style="font-size:12px;color:#111;font-weight:600;margin-bottom:10px">$${tutor.hourly_rate ?? 20}/hr</div>
           <div style="display:flex;gap:6px">
             <a href="/profile/${tutor.user_id}" style="flex:1;text-align:center;padding:6px;border:1px solid #e5e7eb;border-radius:8px;font-size:11px;text-decoration:none;color:#374151;font-weight:500">Ver perfil</a>
-            <a href="/messages?userId=${tutor.user_id}" style="flex:1;text-align:center;padding:6px;background:#6C63FF;color:white;border-radius:8px;font-size:11px;text-decoration:none;font-weight:600">Contactar</a>
+            <a href="/messages?userId=${tutor.user_id}" style="flex:1;text-align:center;padding:6px;background:#2563EB;color:white;border-radius:8px;font-size:11px;text-decoration:none;font-weight:600">Contactar</a>
           </div>
         </div>
       `);
@@ -389,7 +389,7 @@ export default function MapboxMap({ topicFilter, searchResults, onTutorsFound }:
           <div className="max-w-md rounded-2xl border border-white/60 bg-white/80 p-6 shadow-sm backdrop-blur">
             <p className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">Mapa temporalmente desactivado</p>
             <h3 className="mt-3 text-xl font-bold text-slate-900">Falta configurar el token de Mapbox</h3>
-            <p className="mt-3 text-sm leading-6 text-slate-600">Carga el token público para mostrar tutores sobre el mapa. Mientras tanto, la vista queda como placeholder.</p>
+            <p className="mt-3 text-sm leading-6 text-slate-600">Carga el token público para mostrar expertos sobre el mapa. Mientras tanto, la vista queda como placeholder.</p>
           </div>
         </div>
       </div>
@@ -418,7 +418,7 @@ export default function MapboxMap({ topicFilter, searchResults, onTutorsFound }:
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <p className="text-base font-bold text-gray-900 dark:text-white">
-                      Buscando tutores{topicFilter ? ` de ${topicFilter}` : ''}...
+                      Buscando expertos{topicFilter ? ` de ${topicFilter}` : ''}...
                     </p>
                     <p className="mt-0.5 text-sm text-gray-400">Radio actual: {currentRadius} km</p>
                   </div>
@@ -435,16 +435,23 @@ export default function MapboxMap({ topicFilter, searchResults, onTutorsFound }:
                   <div className="mb-3 flex items-center justify-between gap-4">
                     <div>
                       <p className="text-base font-bold text-gray-900 dark:text-white">
-                        {foundTutors.length} tutor{foundTutors.length !== 1 ? 'es' : ''}{topicFilter ? ` de ${topicFilter}` : ''} cerca
+                        {foundTutors.length} experto{foundTutors.length !== 1 ? 's' : ''}{topicFilter ? ` de ${topicFilter}` : ''} cerca
                       </p>
                       <p className="mt-0.5 text-xs text-gray-400">En un radio de {currentRadius} km</p>
                     </div>
                     <div className="flex -space-x-2">
                       {foundTutors.slice(0, 4).map((tutor) => (
-                        <img key={tutor.user_id} src={tutor.avatar_url ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${tutor.user_id}`} className="h-9 w-9 rounded-full border-2 border-white object-cover" alt="" />
+                        <img
+                          key={tutor.user_id}
+                          src={tutor.avatar_url ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${tutor.user_id}`}
+                          className="h-9 w-9 rounded-full border-2 border-white object-cover shadow-[0_6px_16px_rgba(37,99,235,0.12)] ring-2 ring-[#C6E2FE]/50"
+                          alt=""
+                        />
                       ))}
                       {foundTutors.length > 4 && (
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-primary/20 text-xs font-bold text-primary">+{foundTutors.length - 4}</div>
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-[#EEF6FF] text-xs font-bold text-[#2563EB] shadow-[0_6px_16px_rgba(37,99,235,0.12)] ring-2 ring-[#C6E2FE]/50">
+                          +{foundTutors.length - 4}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -459,7 +466,7 @@ export default function MapboxMap({ topicFilter, searchResults, onTutorsFound }:
 
               {searchPhase === 'empty' && (
                 <div className="py-2 text-center">
-                  <p className="font-semibold text-gray-700 dark:text-white/70">No encontramos tutores en tu zona</p>
+                  <p className="font-semibold text-gray-700 dark:text-white/70">No encontramos expertos en tu zona</p>
                   <p className="mt-1 text-sm text-gray-400">Buscamos hasta {currentRadius} km</p>
                   <button onClick={() => searchTutorsRef.current(userLocationRef.current)} className="mt-3 text-sm font-medium text-primary hover:underline">Buscar de nuevo</button>
                 </div>
@@ -483,8 +490,12 @@ function TutorMiniCard({ tutor }: TutorMiniCardProps) {
   return (
     <Link href={`/profile/${tutor.user_id}`} className="shrink-0 flex w-18 flex-col items-center gap-1.5 rounded-xl p-2 text-center transition-colors hover:bg-black/5">
       <div className="relative">
-        <img src={tutor.avatar_url ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${tutor.user_id}`} className="h-12 w-12 rounded-full object-cover border-2 border-white shadow-sm" alt="" />
-        <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-emerald-400" />
+        <img
+          src={tutor.avatar_url ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${tutor.user_id}`}
+          className="h-12 w-12 border-2 border-white object-cover shadow-[0_8px_20px_rgba(37,99,235,0.12)] ring-2 ring-[#C6E2FE]/50 rounded-full"
+          alt=""
+        />
+        <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#C6E2FE] bg-emerald-400" />
       </div>
       <p className="w-full truncate text-xs font-medium leading-tight text-gray-800 dark:text-white/80">{(tutor.display_name ?? tutor.full_name ?? 'Perfil').split(' ')[0]}</p>
       {distLabel && <p className="-mt-0.5 text-xs font-semibold text-primary">{distLabel}</p>}

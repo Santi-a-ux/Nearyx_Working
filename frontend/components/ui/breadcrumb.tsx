@@ -10,7 +10,7 @@ export default function Breadcrumb() {
     explore: "Explorar",
     messages: "Mensajes",
     profile: "Perfil",
-    tutor: "Tutor",
+    tutor: "Experto",
     onboarding: "Onboarding",
     me: "Mi perfil",
   };

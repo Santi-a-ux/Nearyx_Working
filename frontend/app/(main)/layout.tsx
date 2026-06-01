@@ -29,11 +29,11 @@ export default async function MainLayout({
   const avatarUrl = userProfile?.avatar_url;
 
   return (
-    <div className="min-h-screen bg-white text-foreground">
+    <div className="min-h-screen bg-background text-foreground">
       <MainTopbar userLabel={userLabel} avatarUrl={avatarUrl} logoutAction={logoutAction} />
       <AppSidebar />
       <main className="min-h-screen pt-14 pl-[220px]">
-        <div className="min-h-[calc(100vh-3.5rem)] bg-white p-4 text-foreground lg:p-6">
+        <div className="min-h-[calc(100vh-3.5rem)] bg-background p-4 text-foreground lg:p-6">
           {children}
         </div>
       </main>

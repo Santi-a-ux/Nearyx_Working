@@ -25,7 +25,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "Nearyx",
-  description: "Encuentra tu tutor ideal",
+  description: "Encuentra tu experto ideal",
 };
 
 export default function RootLayout({

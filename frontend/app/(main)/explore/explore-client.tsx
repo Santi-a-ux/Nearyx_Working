@@ -38,8 +38,6 @@ const MapboxMap = dynamic(() => import("@/components/map/MapboxMap"), {
   loading: () => <Skeleton className="h-full min-h-144 w-full rounded-2xl" />,
 });
 
-const categoryPills = ["Matemáticas", "Programación", "Idiomas", "Ciencias", "Música", "Diseño"];
-
 export default function ExploreClient() {
   const [tutors, setTutors] = useState<Tutor[]>([]);
   const [searchValue, setSearchValue] = useState("");
@@ -93,9 +91,9 @@ export default function ExploreClient() {
 
   return (
     <div className="flex h-full min-h-[calc(100vh-7rem)] gap-4">
-      <aside className="w-60 shrink-0 rounded-2xl border border-border bg-white p-4 shadow-sm">
+      <aside className="w-60 shrink-0 rounded-2xl border border-border bg-[#F8FBFF] p-4 shadow-sm">
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">Resultados en vivo</p>
-        <h2 className="mt-2 text-lg font-bold text-foreground">Tutores cerca de ti</h2>
+        <h2 className="mt-2 text-lg font-bold text-foreground">Expertos cerca de ti</h2>
         <p className="mt-1 text-sm text-muted-foreground">La lista se sincroniza con el mapa.</p>
 
         <div className="relative mt-4">
@@ -106,8 +104,8 @@ export default function ExploreClient() {
             onKeyDown={(event) => {
               if (event.key === "Enter") setActiveSearch(searchValue.trim());
             }}
-            placeholder="Buscar tutor o materia"
-            className="h-10 rounded-lg border-[0.5px] border-border bg-background pl-9 text-foreground placeholder:text-muted-foreground focus:border-primary focus:bg-white"
+            placeholder="Buscar experto o materia"
+            className="h-10 rounded-lg border-[0.5px] border-border bg-[#ffffff] pl-9 text-foreground placeholder:text-muted-foreground focus:border-primary focus:bg-white"
           />
         </div>
 
@@ -121,7 +119,7 @@ export default function ExploreClient() {
                 setSearchValue(topic);
                 setActiveSearch(topic);
               }}
-              className="h-8 rounded-full border-border bg-brand-soft px-3 text-xs font-bold text-primary transition-colors hover:bg-white"
+              className="h-8 rounded-full border-border bg-[#95C9FC] px-3 text-xs font-bold text-[#ffffff] transition-colors hover:bg-white"
             >
               {topic}
             </Button>
@@ -132,7 +130,7 @@ export default function ExploreClient() {
 
         <div className="mt-4 max-h-[calc(100vh-20rem)] space-y-3 overflow-auto pr-1">
           {visibleTutors.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
+            <div className="rounded-xl border border-dashed border-border bg-[#ffffff] p-4 text-sm text-muted-foreground">
               No hay resultados para esta búsqueda.
             </div>
           ) : (
@@ -146,15 +144,22 @@ export default function ExploreClient() {
               return (
                 <div key={tutor.user_id} className="rounded-xl border border-border bg-white p-3 shadow-sm">
                   <div className="flex items-start gap-3">
-                    <UserAvatar name={tutor.display_name || tutor.full_name || "Tutor"} size="sm" />
+                    <UserAvatar
+                      name={tutor.display_name || tutor.full_name || "Experto"}
+                      size="sm"
+                      avatarUrl={tutor.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${tutor.user_id}`}
+                    />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="truncate text-sm font-semibold text-foreground">{tutor.display_name || tutor.full_name || "Tutor"}</p>
+                        <p className="truncate text-sm font-semibold text-foreground">{tutor.display_name || tutor.full_name || "Experto"}</p>
                         <span className="text-[11px] font-bold text-primary">{distance}</span>
                       </div>
                       <p className="mt-1 truncate text-xs text-muted-foreground">{tutor.bio || buildTutorOccupationLabel(tutor as TutorSearchRecord)}</p>
-                      <div className="mt-2 flex items-center gap-2">
+                      <div className="mt-2 flex items-center gap-3">
                         <span className={tutor.distance_km != null ? "h-2 w-2 rounded-full bg-semantic-success" : "h-2 w-2 rounded-full bg-neutral-400"} />
+                        <Link href={`/profile/${tutor.user_id}`} className="text-xs font-bold text-foreground hover:text-primary">
+                          Ver perfil
+                        </Link>
                         <Link href={`/messages?userId=${tutor.user_id}`} className="text-xs font-bold text-primary hover:text-brand-hover">
                           Contactar
                         </Link>
@@ -169,37 +174,7 @@ export default function ExploreClient() {
       </aside>
 
       <section className="relative min-w-0 flex-1 overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
-        <div className="absolute left-4 right-4 top-4 z-20 rounded-2xl bg-brand-dark/95 p-4 text-white shadow-[0_18px_40px_rgba(15,23,42,0.24)]">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="relative min-w-0 flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/55" />
-              <Input
-                value={searchValue}
-                onChange={(event) => setSearchValue(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") setActiveSearch(searchValue.trim());
-                }}
-                placeholder="Busca por materia, tutor o especialidad"
-                className="h-11 rounded-lg border border-white/10 bg-white/10 pl-9 text-white placeholder:text-white/55 focus:border-primary focus:bg-white/12"
-              />
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {categoryPills.map((pill) => (
-                <Button
-                  key={pill}
-                  type="button"
-                  variant="outline"
-                  onClick={() => setActiveSearch(pill)}
-                  className="h-8 rounded-full border-primary bg-brand-soft px-3 text-xs font-bold text-primary"
-                >
-                  {pill}
-                </Button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="h-full min-h-144 bg-background pt-24">
+        <div className="h-full min-h-144 bg-background">
           <MapboxMap
             topicFilter={activeSearch}
             searchResults={visibleTutors}
@@ -208,26 +183,6 @@ export default function ExploreClient() {
               setMapPhase(phase);
             }}
           />
-        </div>
-
-        <div className="absolute bottom-4 left-4 right-4 z-20 rounded-2xl border border-border bg-white/95 px-4 py-3 shadow-lg backdrop-blur">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-sm font-bold text-foreground">
-                {mapPhase === "found"
-                  ? `${mapTutors.length} tutores cerca`
-                  : mapPhase === "searching"
-                    ? "Buscando tutores"
-                    : "Resultados en vivo"}
-              </p>
-              <p className="text-xs text-muted-foreground">En radio de 5 km · sincronizado con el mapa</p>
-            </div>
-            <div className="flex -space-x-2">
-              {visibleTutors.slice(0, 4).map((tutor) => (
-                <UserAvatar key={tutor.user_id} name={tutor.display_name || tutor.full_name || "Tutor"} size="sm" />
-              ))}
-            </div>
-          </div>
         </div>
       </section>
     </div>

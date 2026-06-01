@@ -1,16 +1,22 @@
 "use client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { avatarFallbackClass, avatarFrameClass, type AvatarFrameSize } from "@/lib/avatar-styles";
 import { cn } from "@/lib/utils";
 
-const toneClasses = [
-  "bg-[var(--primary)]",
-  "bg-[var(--semantic-success)]",
-  "bg-violet-600",
-  "bg-orange-600",
-  "bg-pink-600",
-  "bg-cyan-600",
-];
+const sizeConfig: Record<
+  "xs" | "sm" | "md" | "mlg" | "lg" | "xl" | "profile" | "profileLg",
+  { box: string; frame: AvatarFrameSize }
+> = {
+  xs: { box: "size-8 text-xs", frame: "xs" },
+  sm: { box: "size-8 text-xs", frame: "xs" },
+  md: { box: "size-10 text-sm", frame: "sm" },
+  mlg: { box: "size-11 text-sm", frame: "sm" },
+  lg: { box: "size-14 text-lg", frame: "md" },
+  xl: { box: "size-12 text-sm", frame: "sm" },
+  profile: { box: "size-28 text-2xl", frame: "xl" },
+  profileLg: { box: "size-32 text-2xl", frame: "xl" },
+};
 
 function getInitials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -19,31 +25,38 @@ function getInitials(name: string) {
   return `${first}${second}`.toUpperCase();
 }
 
-function getToneIndex(name: string) {
-  let sum = 0;
-  for (const char of name) sum += char.charCodeAt(0);
-  return sum % toneClasses.length;
-}
-
 export function UserAvatar({
   name,
   size = "md",
   className,
   avatarUrl,
+  framed = true,
 }: {
   name: string;
-  size?: "sm" | "md" | "lg";
+  size?: keyof typeof sizeConfig;
   className?: string;
   avatarUrl?: string;
+  /** Desactiva borde/anillo (p. ej. dentro de otro contenedor ya enmarcado). */
+  framed?: boolean;
 }) {
-  const tone = toneClasses[getToneIndex(name)];
+  const { box, frame } = sizeConfig[size];
   const initials = getInitials(name);
-  const sizeClasses = size === "sm" ? "size-8 text-xs" : size === "lg" ? "size-14 text-lg" : "size-10 text-sm";
+  const seed = encodeURIComponent(name || "user");
 
   return (
-    <Avatar className={cn(sizeClasses, "shrink-0 border border-white", className)}>
-      {avatarUrl ? <AvatarImage src={avatarUrl} alt={name} /> : null}
-      <AvatarFallback className={cn("font-semibold text-white", tone)}>{initials}</AvatarFallback>
+    <Avatar
+      className={cn(
+        box,
+        "shrink-0",
+        framed && avatarFrameClass(frame),
+        className
+      )}
+    >
+      <AvatarImage
+        src={avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`}
+        alt={name}
+      />
+      <AvatarFallback className={avatarFallbackClass}>{initials}</AvatarFallback>
     </Avatar>
   );
 }

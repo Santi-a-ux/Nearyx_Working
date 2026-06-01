@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Integer, Numeric, Boolean, DateTime, MetaData, ForeignKey
+from sqlalchemy import Column, String, Integer, Numeric, Boolean, DateTime, MetaData, ForeignKey, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from geoalchemy2 import Geometry
 from datetime import datetime, timezone
@@ -20,5 +20,19 @@ class TutorProfile(Base):
     verification_status = Column(String(20), default='pending')
     coordinates = Column(Geometry('POINT', srid=4326), nullable=True)
     preferred_payment_method = Column(String(50), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+
+
+class TutorRating(Base):
+    __tablename__ = "ratings"
+    __table_args__ = (
+        UniqueConstraint("tutor_user_id", "rater_user_id", name="uq_tutor_rater"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tutor_user_id = Column(UUID(as_uuid=True), ForeignKey("tutors.profiles.user_id", ondelete="CASCADE"), nullable=False)
+    rater_user_id = Column(UUID(as_uuid=True), nullable=False)
+    rating = Column(Integer, nullable=False)
     created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))

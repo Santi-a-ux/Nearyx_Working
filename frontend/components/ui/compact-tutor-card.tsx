@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/user-avatar";
 import { Button } from "@/components/ui/button";
 
 interface Props {
@@ -22,10 +22,7 @@ export default function CompactTutorCard({ user_id, name, specialty, avatar_url,
 
   return (
     <div className="flex items-center gap-3 rounded-xl border border-white/8 bg-white/5 p-2 hover:bg-white/8">
-      <Avatar className="h-10 w-10">
-        <AvatarImage src={avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user_id}`} alt={display} />
-        <AvatarFallback>{display.substring(0,2).toUpperCase()}</AvatarFallback>
-      </Avatar>
+      <UserAvatar name={display} size="md" avatarUrl={avatar_url} />
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium text-white/80">{display}</div>
         <div className="truncate text-xs text-white/40">{specialty || "General"}</div>

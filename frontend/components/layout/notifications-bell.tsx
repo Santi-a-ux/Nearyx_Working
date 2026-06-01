@@ -13,8 +13,8 @@ type NotificationSummary = {
 
 const staticItems = [
   {
-    title: "Explora tutores activos",
-    description: "Revisa los tutores con mejor coincidencia en tu zona y temática.",
+    title: "Explora expertos activos",
+    description: "Revisa los expertos con mejor coincidencia en tu zona y temática.",
     tone: "bg-[var(--brand-soft)] text-[var(--primary)]",
   },
   {
@@ -162,7 +162,7 @@ export function NotificationsBell() {
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
                           {summary.unreadMessages > 0
-                            ? "Abre mensajes para responder a estudiantes o tutores activos."
+                            ? "Abre mensajes para responder a estudiantes o expertos activos."
                             : "Cuando lleguen mensajes nuevos aparecerán aquí con su prioridad."}
                         </p>
                       </div>

@@ -27,7 +27,7 @@ export default function TutorPaymentSettings({ initial }: { initial?: string }) 
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || data.detail || "Error updating tutor settings");
+        throw new Error(data.error || data.detail || "Error al actualizar la configuración del experto");
       }
 
       toast.success("Preferencia de pago guardada");
@@ -47,14 +47,24 @@ export default function TutorPaymentSettings({ initial }: { initial?: string }) 
           <Button
             key={item.value}
             type="button"
-            variant={method === item.value ? "default" : "outline"}
+            variant="outline"
             size="sm"
+            className={
+              method === item.value
+                ? "border-[#95C9FC] bg-[#95C9FC] text-[#10314F] hover:bg-[#7FB8F5] hover:text-[#10314F]"
+                : "border-border bg-white text-[#10314F] hover:bg-[#F8FBFF]"
+            }
             onClick={() => setMethod(item.value)}
           >
             {item.label}
           </Button>
         ))}
-        <Button onClick={save} disabled={loading || !method} size="sm">
+        <Button
+          onClick={save}
+          disabled={loading || !method}
+          size="sm"
+          className="bg-[#CCFBF1] text-[#0F766E] hover:bg-[#B2F5EA] disabled:opacity-50"
+        >
           {loading ? "Guardando..." : "Guardar"}
         </Button>
       </div>

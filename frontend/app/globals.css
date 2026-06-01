@@ -67,6 +67,23 @@
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
 
+  --color-brand-dark: var(--brand-dark);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand: var(--brand-action);
+
+  --color-semantic-success: var(--semantic-success);
+  --color-semantic-error: var(--semantic-error);
+  --color-semantic-warning: var(--semantic-warning);
+  --color-semantic-info: var(--semantic-info);
+
+  --color-neutral-50: var(--neutral-50);
+  --color-neutral-100: var(--neutral-100);
+  --color-neutral-200: var(--neutral-200);
+  --color-neutral-600: var(--neutral-600);
+  --color-neutral-700: var(--neutral-700);
+  --color-neutral-900: var(--neutral-900);
+
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -83,7 +100,7 @@
 
   --brand-action: #0058ff;
   --brand-hover: #172554;
-  --brand-soft: #2563eb;
+  --brand-soft: #eaf1ff;
   --brand-dark: #0f172a;
 
   --neutral-50: #f8fbff;
@@ -170,8 +187,8 @@
 
   --destructive: #dc2626;
 
-  --border: #d9e3f4;
-  --border-hover: rgba(217, 227, 244, 0.88);
+  --border: #c6e2fe;
+  --border-hover: rgba(149, 201, 252, 0.88);
 
   --input: #ffffff;
 
@@ -197,7 +214,7 @@
      ZONE HELPERS
   ========================== */
 
-  --ui-navbar-bg: #ffffff;
+  --ui-navbar-bg: #f8fbff;
   --ui-hero-bg: linear-gradient(135deg, #8ec5fc 0%, #d6eaff 55%, #ffe5cf 100%);
   --ui-alt-section-bg: #fffaf5;
   --ui-dark-panel-bg: #0f172a;
@@ -235,7 +252,7 @@
 
   --destructive: #dc2626;
 
-  --border: #d9e3f4;
+  --border: #c6e2fe;
   --input: #ffffff;
   --ring: #60a5fa;
 
@@ -608,7 +625,7 @@ header,
 nav[data-topbar],
 .topbar,
 [data-slot="header"] {
-  background-color: #ffffff !important;
+  background-color: #F8FBFF !important;
   border-bottom: 1px solid #d9e3f4 !important;
   color: #282828 !important;
 }

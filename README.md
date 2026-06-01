@@ -1,6 +1,8 @@
-# TutorMatch — Plataforma de Tutores y Estudiantes
+# Nearyx — Plataforma de Expertos y Estudiantes
 
-Arquitectura de microservicios orientados al dominio para conectar tutores y estudiantes.
+Arquitectura de microservicios para conectar estudiantes con expertos (mapa, feed, chat y reservas).
+
+Repositorio de referencia: [Nearyx_Working](https://github.com/Santi-a-ux/Nearyx_Working)
 
 ## Stack tecnológico
 
@@ -23,20 +25,22 @@ Arquitectura de microservicios orientados al dominio para conectar tutores y est
 | API Gateway | 8000 | Routing, auth check, rate limiting |
 | Auth Service | 8001 | JWT, registro, login |
 | User Service | 8002 | Perfiles de usuario |
-| Tutor Service | 8003 | Perfiles y disponibilidad tutor |
+| Tutor Service | 8003 | Perfiles y disponibilidad de expertos |
 | Geo Service | 8004 | Búsqueda geoespacial |
 | Chat Service | 8005 | Mensajería en tiempo real |
 | Media Service | 8006 | Upload de archivos |
+| Booking Service | 8007 | Reservas de sesiones |
 
 ## Instalación rápida
 
 ### 1. Clonar y configurar
 
 ```bash
-git clone <repo>
-cd tutoring-platform
+git clone https://github.com/Santi-a-ux/Nearyx_Working.git
+cd Nearyx_Working
 cp .env.example .env
-# Edita .env con tus credenciales reales
+cp frontend/.env.example frontend/.env.local
+# Edita .env y frontend/.env.local (Mapbox, JWT_SECRET, etc.)
 ```
 
 ### 2. Levantar infraestructura base
@@ -62,12 +66,13 @@ curl http://localhost:8003/health  # Tutors
 curl http://localhost:8004/health  # Geo
 curl http://localhost:8005/health  # Chat
 curl http://localhost:8006/health  # Media
+curl http://localhost:8007/health  # Bookings
 ```
 
 ### 5. Crear datos iniciales
 
 Los datos de ejemplo se cargan automáticamente desde el frontend cuando abres la app por primera vez. 
-Puedes crear nuevos usuarios registrándote en `/register` y crear perfiles de tutor en `/tutor/onboarding`.
+Puedes crear nuevos usuarios en `/register` y completar perfil de experto en `/profile/me`.
 
 ## Desarrollo local (sin Docker)
 

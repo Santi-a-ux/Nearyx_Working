@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
+import { mapSessionRoleToFeedAuthorRole, type FeedAuthorRole } from "@/lib/feed-author-role";
+
 const API_URL = process.env.INTERNAL_API_URL || "http://gateway:8000";
 
 type FeedPost = {
@@ -11,6 +13,7 @@ type FeedPost = {
   created_at: string;
   author_name?: string;
   author_avatar?: string;
+  author_role?: FeedAuthorRole;
 };
 
 // In-memory store for feed posts (will be reset when server restarts)
@@ -27,6 +30,7 @@ function initializeSamplePosts() {
         created_at: new Date(Date.now() - 3600000).toISOString(),
         author_name: "María José González",
         author_avatar: undefined,
+        author_role: "Estudiante",
       },
       {
         id: "sample-2",
@@ -35,6 +39,7 @@ function initializeSamplePosts() {
         created_at: new Date(Date.now() - 7200000).toISOString(),
         author_name: "Roberto Martínez",
         author_avatar: undefined,
+        author_role: "Experto",
       },
     ];
   }
@@ -106,6 +111,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const sessionRole = authData.role || userData.role;
+    const bodyRole = typeof body.author_role === "string" ? body.author_role : undefined;
+
     const post: FeedPost = {
       id: crypto.randomUUID(),
       author_id: String(authData.id || authData.user_id || "user"),
@@ -114,6 +122,10 @@ export async function POST(request: NextRequest) {
       created_at: new Date().toISOString(),
       author_name: userData.display_name || userData.name || authData.display_name || authData.email?.split("@")[0] || "Usuario",
       author_avatar: userData.avatar_url || userData.profile_picture || undefined,
+      author_role:
+        mapSessionRoleToFeedAuthorRole(sessionRole) ||
+        mapSessionRoleToFeedAuthorRole(bodyRole) ||
+        undefined,
     };
 
     const posts = readPosts();

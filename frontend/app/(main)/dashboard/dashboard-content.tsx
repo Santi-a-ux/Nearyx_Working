@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Heart, ImagePlus, MessageSquare, Share2, Upload, X } from "lucide-react";
+import { Heart, ImagePlus, MessageSquare, Share2, Star, Upload, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { toast } from "sonner";
@@ -13,8 +13,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/user-avatar";
-import { fetchApi } from "@/lib/api";
+import InlineTutorRating from "@/components/profile/inline-tutor-rating";
 import { SAMPLE_POSTS } from "@/lib/constants";
+import { isExpertFeedAuthorRole, mapSessionRoleToFeedAuthorRole, type FeedAuthorRole } from "@/lib/feed-author-role";
+import { RATING_UPDATED_EVENT } from "@/lib/rating-events";
 import { matchesKeywordSearch } from "@/lib/tutor-search";
 import { cn } from "@/lib/utils";
 
@@ -22,7 +24,7 @@ interface FeedPost {
   id: string;
   author_id: string;
   author_name?: string;
-  author_role?: "Tutor" | "Estudiante";
+  author_role?: FeedAuthorRole | "Tutor";
   author_avatar?: string;
   content: string;
   created_at: string;
@@ -42,6 +44,13 @@ interface TutorSidebarItem {
   specialties?: string[];
   avatar_url?: string;
   is_available?: boolean;
+  average_rating?: number | null;
+  ratings_count?: number;
+}
+
+interface TutorRatingSummary {
+  average_rating?: number | null;
+  ratings_count?: number;
 }
 
 interface SessionUserProfile {
@@ -49,11 +58,12 @@ interface SessionUserProfile {
   display_name?: string;
   email?: string;
   avatar_url?: string;
+  role?: string;
 }
 
 const starterPosts: FeedPost[] = SAMPLE_POSTS.map((post, index) => ({
   ...post,
-  author_role: index % 2 === 0 ? "Estudiante" : "Tutor",
+  author_role: index % 2 === 0 ? "Estudiante" : "Experto",
 })) as FeedPost[];
 
 async function fetchFeedPosts(limit = 20, offset = 0): Promise<FeedResponse> {
@@ -62,16 +72,86 @@ async function fetchFeedPosts(limit = 20, offset = 0): Promise<FeedResponse> {
   return response.json();
 }
 
-async function createFeedPost(content: string, imageUrl?: string) {
+async function createFeedPost(content: string, imageUrl?: string, authorRole?: FeedAuthorRole) {
   const response = await fetch("/api/feed/posts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content, image_url: imageUrl }),
+    body: JSON.stringify({ content, image_url: imageUrl, author_role: authorRole }),
   });
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || "No se pudo publicar");
   return data;
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim());
+}
+
+function enrichFeedPost(
+  post: FeedPost,
+  currentUser?: SessionUserProfile | null,
+  expertUserIds?: ReadonlySet<string>
+): FeedPost {
+  if (post.author_role) return post;
+
+  if (currentUser?.user_id && post.author_id === String(currentUser.user_id)) {
+    const role = mapSessionRoleToFeedAuthorRole(currentUser.role);
+    if (role) return { ...post, author_role: role };
+  }
+
+  if (expertUserIds?.has(post.author_id)) {
+    return { ...post, author_role: "Experto" };
+  }
+
+  return post;
+}
+
+function sortExpertsByRating(tutors: TutorSidebarItem[]) {
+  return [...tutors].sort((a, b) => {
+    const avgA = typeof a.average_rating === "number" ? a.average_rating : -1;
+    const avgB = typeof b.average_rating === "number" ? b.average_rating : -1;
+    if (avgB !== avgA) return avgB - avgA;
+    return (b.ratings_count ?? 0) - (a.ratings_count ?? 0);
+  });
+}
+
+async function fetchFeaturedExperts(): Promise<{ tutors: TutorSidebarItem[] }> {
+  try {
+    const res = await fetch("/api/tutors/?limit=50", { credentials: "include", cache: "no-store" });
+    if (!res.ok) return { tutors: [] };
+
+    const data = await res.json();
+    const tutors: TutorSidebarItem[] = Array.isArray(data) ? data : data.tutors ?? [];
+
+    const enriched = await Promise.all(
+      tutors.map(async (tutor) => {
+        try {
+          const [profileRes, ratingRes] = await Promise.all([
+            fetch(`/api/users/profiles/${tutor.user_id}`, { credentials: "include", cache: "no-store" }),
+            fetch(`/api/tutors/${tutor.user_id}/rating`, { credentials: "include", cache: "no-store" }),
+          ]);
+
+          const profile = profileRes.ok ? await profileRes.json().catch(() => null) : null;
+          const rating = ratingRes.ok ? ((await ratingRes.json().catch(() => null)) as TutorRatingSummary | null) : null;
+
+          return {
+            ...tutor,
+            display_name: profile?.display_name || tutor.display_name,
+            avatar_url: profile?.avatar_url || tutor.avatar_url,
+            average_rating: rating?.average_rating ?? null,
+            ratings_count: rating?.ratings_count ?? 0,
+          };
+        } catch {
+          return tutor;
+        }
+      })
+    );
+
+    return { tutors: sortExpertsByRating(enriched).slice(0, 4) };
+  } catch {
+    return { tutors: [] };
+  }
 }
 
 export function DashboardContent() {
@@ -103,6 +183,7 @@ export function DashboardContent() {
           ...sessionData,
           display_name: profileData.display_name || sessionData.display_name,
           avatar_url: profileData.avatar_url || sessionData.avatar_url,
+          role: sessionData.role,
         };
       } catch {
         return null;
@@ -112,6 +193,10 @@ export function DashboardContent() {
 
   useEffect(() => {
     const readCurrentQuery = () => {
+      if (!window.location.pathname.startsWith("/dashboard")) {
+        setSearchQuery("");
+        return;
+      }
       const currentParams = new URLSearchParams(window.location.search);
       setSearchQuery(currentParams.get("q") || "");
     };
@@ -126,6 +211,15 @@ export function DashboardContent() {
     };
   }, []);
 
+  useEffect(() => {
+    const refreshFeaturedExperts = () => {
+      void queryClient.invalidateQueries({ queryKey: ["dashboard-tutors"] });
+    };
+
+    window.addEventListener(RATING_UPDATED_EVENT, refreshFeaturedExperts);
+    return () => window.removeEventListener(RATING_UPDATED_EVENT, refreshFeaturedExperts);
+  }, [queryClient]);
+
   const { data: feedData, isLoading } = useQuery<FeedResponse>({
     queryKey: ["feed-posts"],
     queryFn: async () => {
@@ -139,35 +233,20 @@ export function DashboardContent() {
 
   const { data: tutorsData } = useQuery<{ tutors: TutorSidebarItem[] }>({
     queryKey: ["dashboard-tutors"],
-    queryFn: async () => {
-      try {
-        const res = await fetchApi<TutorSidebarItem[] | { tutors?: TutorSidebarItem[] }>("/api/tutors/?limit=5");
-        const tutors = Array.isArray(res) ? res : res.tutors ?? [];
-
-        const enriched = await Promise.all(
-          tutors.map(async (tutor) => {
-            try {
-              const profile = await fetchApi<{ display_name?: string; avatar_url?: string; bio?: string }>(`/api/users/profiles/${tutor.user_id}`);
-              return {
-                ...tutor,
-                display_name: profile?.display_name || tutor.display_name,
-                avatar_url: profile?.avatar_url || tutor.avatar_url,
-              };
-            } catch {
-              return tutor;
-            }
-          })
-        );
-
-        return { tutors: enriched };
-      } catch {
-        return { tutors: [] };
-      }
-    },
+    queryFn: fetchFeaturedExperts,
+    staleTime: 0,
   });
 
   const createPostMutation = useMutation({
-    mutationFn: ({ content, imageUrl }: { content: string; imageUrl?: string | null }) => createFeedPost(content, imageUrl || undefined),
+    mutationFn: ({
+      content,
+      imageUrl,
+      authorRole,
+    }: {
+      content: string;
+      imageUrl?: string | null;
+      authorRole?: FeedAuthorRole;
+    }) => createFeedPost(content, imageUrl || undefined, authorRole),
     onSuccess: () => {
       setNewPost("");
       setAttachedImageUrl(null);
@@ -185,15 +264,21 @@ export function DashboardContent() {
     },
   });
 
-  const posts = feedData?.posts?.length ? feedData.posts : starterPosts;
   const tutors = tutorsData?.tutors ?? [];
+  const expertUserIds = new Set(tutors.map((tutor) => tutor.user_id));
+  const rawPosts = feedData?.posts?.length ? feedData.posts : starterPosts;
+  const posts = rawPosts.map((post) => enrichFeedPost(post, currentUserProfile, expertUserIds));
   const filteredPosts = searchQuery ? posts.filter((post) => matchesKeywordSearch(`${post.content} ${post.author_name || ""}`, searchQuery)) : posts;
   const currentUserLabel = currentUserProfile?.display_name || currentUserProfile?.email?.split("@")[0] || "Tu";
   const currentUserAvatar = currentUserProfile?.avatar_url || undefined;
 
   const handlePublish = () => {
     if (!newPost.trim()) return;
-    createPostMutation.mutate({ content: newPost.trim(), imageUrl: attachedImageUrl });
+    createPostMutation.mutate({
+      content: newPost.trim(),
+      imageUrl: attachedImageUrl,
+      authorRole: mapSessionRoleToFeedAuthorRole(currentUserProfile?.role),
+    });
   };
 
   const clearAttachment = () => {
@@ -250,7 +335,7 @@ export function DashboardContent() {
               <Button
                 type="button"
                 variant="outline"
-                className="h-12 flex-1 justify-start rounded-2xl border-[#95C9FC] bg-[#C6E2FE] px-4 text-left text-[#3d4d5a] shadow-none hover:bg-[rgba(198,226,254,0.92)] hover:text-foreground"
+                className="h-12 flex-1 justify-start rounded-2xl border border-border bg-[#ffffff] px-4 text-left text-[#3d4d5a] shadow-none hover:bg-[rgba(198,226,254,0.92)] hover:text-foreground"
                 onClick={() => setComposerOpen(true)}
               >
                 ¿Qué estás pensando? Comparte texto, emojis o una imagen.
@@ -262,7 +347,7 @@ export function DashboardContent() {
         <Dialog open={composerOpen} onOpenChange={setComposerOpen}>
           <DialogContent className="w-[min(92vw,720px)] max-w-[720px] border border-[#95C9FC] bg-[#95C9FC] p-0 text-[var(--ui-dark-panel-text)] shadow-[0_32px_80px_rgba(0,0,0,0.45)]">
             <DialogHeader className="border-b border-[#95C9FC] px-5 py-4">
-              <DialogTitle className="text-center text-[1.15rem] font-semibold text-[var(--ui-dark-panel-text)]">Crear publicación</DialogTitle>
+              <DialogTitle className="text-center text-[1.15rem] font-semibold text-[#ffffff]">Crear publicación</DialogTitle>
             </DialogHeader>
 
             <form
@@ -275,8 +360,8 @@ export function DashboardContent() {
               <div className="flex items-start gap-3">
                 <UserAvatar name={currentUserLabel} size="md" avatarUrl={currentUserAvatar} />
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-[var(--ui-dark-panel-text)]">Tu publicación</p>
-                  <p className="text-xs text-white/65">Solo texto, emojis e imágenes</p>
+                  <p className="text-sm font-semibold text-[#ffffff]">Tu publicación</p>
+                  <p className="text-xs text-[#10314f]/70">Solo texto, emojis e imágenes</p>
                 </div>
               </div>
 
@@ -312,7 +397,7 @@ export function DashboardContent() {
               />
 
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#95C9FC] px-4 py-3">
-                <div className="flex items-center gap-2 text-sm font-medium text-[var(--ui-dark-panel-text)]">
+                <div className="flex items-center gap-2 text-sm font-medium text-[#ffffff]">
                   <span>Agregar a tu publicación</span>
                   <Button
                     type="button"
@@ -334,10 +419,10 @@ export function DashboardContent() {
                   >
                     <Upload className="h-4 w-4" />
                   </Button>
-                  {imageUploading ? <span className="text-xs text-white/65">Subiendo imagen...</span> : null}
+                  {imageUploading ? <span className="text-xs text-[#10314f]/70">Subiendo imagen...</span> : null}
                 </div>
 
-                <span className="text-xs text-white/65">{newPost.length}/500</span>
+                <span className="text-xs text-[#10314f]/70">{newPost.length}/500</span>
               </div>
 
               <DialogFooter className="-mx-5 -mb-4 border-t border-[#95C9FC] bg-[#95C9FC] px-5 py-4">
@@ -368,7 +453,7 @@ export function DashboardContent() {
             Array.from({ length: 3 }).map((_, index) => (
               <Card key={index} className="rounded-none border-0 border-b border-[#eef2f7] bg-white shadow-none last:border-b-0">
                 <CardContent className="p-4">
-                <div className="h-6 w-48 rounded bg-[#eef4ff]" />
+                <div className="h-6 w-48 rounded bg-[#f4ffee]" />
                 <div className="mt-4 h-24 rounded bg-[#f3f6fb]" />
                 </CardContent>
               </Card>
@@ -381,15 +466,15 @@ export function DashboardContent() {
         </div>
       </section>
 
-      <aside className="space-y-4 xl:w-[260px]">
-        <Card className="p-0">
+      <aside className="space-y-4 self-start xl:sticky xl:top-[calc(3.5rem+1rem)] xl:w-[260px]">
+        <Card className="p-0 bg-[#F8FBFF]">
           <CardHeader className="p-4 pb-0">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">Tutores destacados</p>
-              <h2 className="mt-1 text-sm font-bold text-foreground">Encuentra apoyo rápido</h2>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">Expertos destacados</p>
+              <h2 className="mt-1 text-sm font-bold text-foreground">Mejor calificados</h2>
             </div>
-            <Badge variant="default" className="rounded-full bg-[var(--primary)] text-[var(--primary-foreground)] shadow-sm">
+            <Badge variant="default" className="rounded-full bg-[#ff5757] text-[var(--primary-foreground)] shadow-sm">
               En vivo
             </Badge>
           </div>
@@ -398,23 +483,31 @@ export function DashboardContent() {
           <CardContent className="mt-0 p-4 pt-4">
           <div className="space-y-3">
             {tutors.length === 0 ? (
-              <Card className="border-dashed p-0">
+              <Card className="border-dashed p-0 bg-[#ffffff]">
                 <CardContent className="p-4 text-sm text-muted-foreground">
-                Aún no hay tutores para mostrar.
+                Aún no hay expertos para mostrar.
                 </CardContent>
               </Card>
             ) : (
-              tutors.slice(0, 4).map((tutor) => (
-                <Card key={tutor.user_id} className="p-0">
+              tutors.map((tutor) => (
+                <Card key={tutor.user_id} className="p-0 bg-[#F8FBFF]">
                   <CardContent className="flex items-center gap-3 p-3">
                   <div className="relative shrink-0">
-                    <UserAvatar name={tutor.display_name || tutor.full_name || "Tutor"} size="sm" avatarUrl={tutor.avatar_url} />
+                    <UserAvatar name={tutor.display_name || tutor.full_name || "Experto"} size="sm" avatarUrl={tutor.avatar_url} />
                     <span className={cn("absolute -right-0.5 bottom-0 h-2.5 w-2.5 rounded-full border-2 border-white", tutor.is_available ? "bg-[#95C9FC]" : "bg-[var(--neutral-400)]")} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-foreground">{tutor.display_name || tutor.full_name || "Tutor"}</p>
-                    <p className="truncate text-xs text-muted-foreground">{tutor.specialties?.[0] || "Tutoría general"}</p>
-                    <Link href={`/messages?userId=${tutor.user_id}`} className="mt-2 inline-flex text-xs font-bold text-[#95C9FC] hover:text-[#7bb4ea]">
+                    <p className="truncate text-sm font-semibold text-foreground">{tutor.display_name || tutor.full_name || "Experto"}</p>
+                    <p className="truncate text-xs text-muted-foreground">{tutor.specialties?.[0] || "Experiencia general"}</p>
+                    <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                      <Star className="h-3.5 w-3.5 text-amber-500" />
+                      <span>
+                        {typeof tutor.average_rating === "number"
+                          ? `${tutor.average_rating.toFixed(1)} (${tutor.ratings_count || 0})`
+                          : "Sin calificaciones"}
+                      </span>
+                    </div>
+                    <Link href={`/messages?userId=${tutor.user_id}`} className="mt-2 inline-flex text-xs font-bold text-primary hover:text-brand-hover">
                       Contactar
                     </Link>
                   </div>
@@ -427,11 +520,11 @@ export function DashboardContent() {
         </Card>
 
         <Card className="bg-[#95C9FC] p-0 text-[#10314f] shadow-[0_18px_40px_rgba(15,23,42,0.22)] transition-transform hover:-translate-y-0.5">
-          <CardContent className="p-4 text-white">
+          <CardContent className="p-4">
           <Link href="/explore" className="block">
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#10314f]/80">Mapa vivo</p>
           <h3 className="mt-2 text-lg font-bold text-[#10314f]">Explorar en el mapa</h3>
-          <p className="mt-2 text-sm text-[#10314f]/82">Revisa tutores cercanos, categorías activas y disponibilidad en tiempo real.</p>
+          <p className="mt-2 text-sm text-[#10314f]/82">Revisa expertos cercanos, categorías activas y disponibilidad en tiempo real.</p>
           </Link>
           </CardContent>
         </Card>
@@ -443,10 +536,10 @@ export function DashboardContent() {
 function PostCard({ post, toneIndex, isLast }: { post: FeedPost; toneIndex: number; isLast: boolean }) {
   const [liked, setLiked] = useState(false);
   const [likes, setLikes] = useState(12 + toneIndex);
-  const isTutor = post.author_role === "Tutor" || /tutor/i.test(post.author_name || "");
+  const isExpert = isExpertFeedAuthorRole(post.author_role) || post.author_role === "Tutor";
 
   return (
-    <article className={cn("group border-b border-[#eef2f7] bg-white transition-all hover:bg-[#f8fbff] hover:shadow-[0_1px_0_rgba(217,227,244,0.35),0_10px_24px_rgba(15,23,42,0.06)] hover:rounded-2xl", isLast && "border-b-0")}>
+    <article className={cn("group border-b border-[#f8fbff] bg-[#f8fbff] transition-all hover:bg-[#ffffff] hover:shadow-[0_1px_0_rgba(217,227,244,0.35),0_10px_24px_rgba(15,23,42,0.06)] hover:rounded-2xl", isLast && "border-b-0")}>
       <div className="p-4 transition-colors">
         <div className="flex items-start gap-3">
           <UserAvatar name={post.author_name || "Usuario"} size="md" avatarUrl={post.author_avatar} />
@@ -456,20 +549,20 @@ function PostCard({ post, toneIndex, isLast }: { post: FeedPost; toneIndex: numb
               <span className="text-xs text-[#6b7280]">•</span>
               <span className="text-xs text-[#6b7280]">{new Intl.DateTimeFormat("es-CO", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(post.created_at))}</span>
               <Badge
-                variant={isTutor ? "default" : "secondary"}
+                variant={isExpert ? "default" : "secondary"}
                 className={cn(
                   "rounded-full px-2 py-0.5 text-[11px]",
-                  isTutor ? "bg-[#eaf1ff] text-[#0058ff]" : "bg-[#f3f6fb] text-[#374151]"
+                  isExpert ? "bg-[#fa5e03] text-[#ffffff]" : "bg-[#4400ff] text-[#ffffff]"
                 )}
               >
-                {isTutor ? "Tutor" : "Estudiante"}
+                {isExpert ? "Experto" : "Estudiante"}
               </Badge>
             </div>
 
             <p className="mt-2 whitespace-pre-wrap text-[15px] leading-6 text-[#111827]">{post.content}</p>
 
             {post.image_url ? (
-              <div className="mt-3 overflow-hidden rounded-2xl border border-[#d9e3f4] bg-[#f8fbff]">
+              <div className="mt-3 overflow-hidden rounded-2xl border border-border bg-[#f8fbff]">
                 <img src={post.image_url} alt={post.author_name || "Publicación"} className="max-h-[32rem] w-full object-cover" />
               </div>
             ) : null}
@@ -499,6 +592,10 @@ function PostCard({ post, toneIndex, isLast }: { post: FeedPost; toneIndex: numb
                 Compartir
               </Button>
             </div>
+
+            {isExpert && isUuid(post.author_id) ? (
+              <InlineTutorRating tutorUserId={post.author_id} />
+            ) : null}
           </div>
         </div>
       </div>

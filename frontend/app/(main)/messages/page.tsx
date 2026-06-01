@@ -1,14 +1,17 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState, useRef, type ChangeEvent, type FormEvent } from "react";
+import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { AlertCircle, Loader2, MoreHorizontal, Search, Send } from "lucide-react";
+import { UserAvatar } from "@/components/user-avatar";
+import { AlertCircle, CalendarDays, Loader2, Search, Send } from "lucide-react";
 import { toast } from "sonner";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { fetchApi } from "@/lib/api";
+import { appPanelClass, appPanelSoftClass } from "@/lib/surface-styles";
 
 /* ---------------- TYPES (sin cambios) ---------------- */
 
@@ -24,6 +27,8 @@ interface Message {
 
 interface MyUserProfile {
   user_id: string;
+  display_name?: string;
+  avatar_url?: string;
 }
 
 interface ConversationSummary {
@@ -48,6 +53,7 @@ interface ConversationItem extends ConversationSummary {
 /* ---------------- COMPONENT ---------------- */
 
 function MessagesPageContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const initialReceiverId = searchParams.get("userId") || "";
 
@@ -59,9 +65,16 @@ function MessagesPageContent() {
   const [receiverId, setReceiverId] = useState(initialReceiverId);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [meId, setMeId] = useState<string | null>(null);
+  const [meDisplayName, setMeDisplayName] = useState("Tú");
+  const [meAvatar, setMeAvatar] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(true);
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [receiverProfile, setReceiverProfile] = useState<UserProfileSummary | null>(null);
+  const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
+  const [bookingDate, setBookingDate] = useState("");
+  const [bookingTime, setBookingTime] = useState("");
+  const [bookingDurationMinutes, setBookingDurationMinutes] = useState(60);
+  const [bookingSubmitting, setBookingSubmitting] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const receiverIdRef = useRef(initialReceiverId);
@@ -145,6 +158,16 @@ function MessagesPageContent() {
     }
   };
 
+  const loadReceiverProfile = async (participantId: string) => {
+    if (!participantId || !isUuid(participantId)) {
+      setReceiverProfile(null);
+      return;
+    }
+
+    const profile = await fetchApi<UserProfileSummary>(`/users/profiles/${participantId}`).catch(() => null);
+    setReceiverProfile(profile);
+  };
+
   const ensureConversation = async (participantId: string) => {
     try {
       const response = await fetch("/api/chat/conversation", {
@@ -167,6 +190,7 @@ function MessagesPageContent() {
 
     setReceiverId(participantId);
     setReceiverProfile(null);
+    await loadReceiverProfile(participantId);
     await ensureConversation(participantId);
   };
 
@@ -175,13 +199,25 @@ function MessagesPageContent() {
   useEffect(() => {
     fetch("/api/session")
       .then((r) => r.json())
-      .then((user: MyUserProfile) => setMeId(user.user_id))
+      .then((user: MyUserProfile) => {
+        setMeId(user.user_id);
+        setMeDisplayName(user.display_name || "Tú");
+        setMeAvatar(user.avatar_url);
+      })
       .finally(() => setIsLoading(false));
   }, []);
 
   useEffect(() => {
     if (meId) loadConversations();
   }, [meId]);
+
+  useEffect(() => {
+    if (!meId || !receiverId || !isUuid(receiverId)) {
+      return;
+    }
+
+    void openConversation(receiverId);
+  }, [meId, receiverId]);
 
   useEffect(() => {
     scrollToBottom();
@@ -198,7 +234,11 @@ function MessagesPageContent() {
       try {
         const tokenResponse = await fetch("/api/auth/ws-token");
         if (!tokenResponse.ok) {
-          throw new Error("Failed to fetch WS token");
+          const errBody = await tokenResponse.json().catch(() => ({}));
+          const msg = errBody?.error || `WS token fetch failed (${tokenResponse.status})`;
+          toast.error(msg);
+          console.error("WS token fetch failed:", tokenResponse.status, errBody);
+          throw new Error(msg);
         }
 
         const { token } = await tokenResponse.json();
@@ -209,6 +249,7 @@ function MessagesPageContent() {
 
         ws.onopen = () => {
           setIsConnected(true);
+          console.info("WS open for meId:", meId);
         };
 
         ws.onmessage = (event) => {
@@ -232,12 +273,16 @@ function MessagesPageContent() {
           }
         };
 
-        ws.onclose = () => {
+        ws.onclose = (ev) => {
           setIsConnected(false);
+          console.warn("WS closed", ev);
+          toast.error("Conexión de chat cerrada.");
         };
 
-        ws.onerror = () => {
+        ws.onerror = (ev) => {
           setIsConnected(false);
+          console.error("WS error", ev);
+          toast.error("Error en la conexión de chat.");
         };
 
         wsRef.current = ws;
@@ -262,8 +307,15 @@ function MessagesPageContent() {
   /* ---------------- UI HELPERS ---------------- */
 
   const activeConversation = useMemo<ConversationItem | null>(
-    () => conversations.find((conversation: ConversationItem) => conversation.other_participant_id === receiverId) || null,
-    [conversations, receiverId]
+    () =>
+      conversations.find((conversation: ConversationItem) => {
+        const partnerId =
+          conversation.other_participant_id ||
+          conversation.participant_ids.find((id) => id !== meId) ||
+          "";
+        return partnerId === receiverId;
+      }) || null,
+    [conversations, receiverId, meId]
   );
 
   const resolvedName =
@@ -279,7 +331,7 @@ function MessagesPageContent() {
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-[var(--color-text)]" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -328,33 +380,93 @@ function MessagesPageContent() {
     }, 100);
   };
 
+  const openBookingDialog = () => {
+    const now = new Date();
+    now.setHours(now.getHours() + 1);
+
+    const nextDate = now.toISOString().slice(0, 10);
+    const nextTime = now.toTimeString().slice(0, 5);
+
+    setBookingDate(nextDate);
+    setBookingTime(nextTime);
+    setBookingDurationMinutes(60);
+    setBookingDialogOpen(true);
+  };
+
+  const handleCreateBooking = async () => {
+    if (!receiverId || !isUuid(receiverId) || !bookingDate || !bookingTime || bookingSubmitting) {
+      return;
+    }
+
+    const startDateTime = new Date(`${bookingDate}T${bookingTime}:00`);
+    if (Number.isNaN(startDateTime.getTime())) {
+      toast.error("Selecciona una fecha y hora válidas.");
+      return;
+    }
+
+    const endDateTime = new Date(startDateTime.getTime() + Math.max(30, bookingDurationMinutes) * 60 * 1000);
+
+    setBookingSubmitting(true);
+    try {
+      const response = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tutor_id: receiverId,
+          scheduled_start: startDateTime.toISOString(),
+          scheduled_end: endDateTime.toISOString(),
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || data.detail || "No se pudo crear la reserva");
+      }
+
+      toast.success("Reserva creada");
+      setBookingDialogOpen(false);
+      router.push("/bookings");
+    } catch (error) {
+      const err = error as Error;
+      toast.error(err.message || "No se pudo crear la reserva");
+    } finally {
+      setBookingSubmitting(false);
+    }
+  };
+
   return (
-    <div className="flex h-full min-h-0 w-full overflow-hidden bg-[var(--color-bg)]">
-      <div className="flex h-full min-h-0 w-full gap-3 p-3 lg:p-4">
-        <aside className="flex min-h-0 w-[360px] flex-col overflow-hidden rounded-[22px] border border-[rgba(253,251,212,0.12)] bg-[var(--color-surface)] shadow-[0_24px_60px_rgba(56,36,13,0.18)]">
-          <div className="flex-shrink-0 border-b border-[rgba(253,251,212,0.12)] px-5 py-4">
+    <div className="flex h-full min-h-0 w-full overflow-hidden bg-[#ffffff]">
+      <div className="flex h-full min-h-0 w-full gap-4 p-3 lg:p-4">
+        <aside className={`flex min-h-0 w-[360px] flex-col overflow-hidden ${appPanelSoftClass}`}>
+          <div className="flex-shrink-0 border-b border-border px-5 py-4">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-[11px] uppercase tracking-[0.26em] text-[var(--color-text-muted)]">
+                <p className="text-[11px] uppercase tracking-[0.26em] text-muted-foreground">
                   Mensajes
                 </p>
-                <h2 className="mt-2 text-[1.05rem] font-semibold text-[var(--color-bg)]">
+                <h2 className="mt-2 text-[1.05rem] font-semibold text-foreground">
                   Conversaciones
                 </h2>
               </div>
 
-              <span className="rounded-full border border-[rgba(253,251,212,0.14)] px-3 py-1 text-[11px] font-medium text-[rgba(253,251,212,0.8)]">
+              <span
+                className={`rounded-full px-3 py-1 text-[11px] font-medium ${
+                  isConnected
+                    ? "bg-semantic-success/10 text-semantic-success"
+                    : "bg-muted text-muted-foreground"
+                }`}
+              >
                 {isConnected ? "En línea" : "Desconectado"}
               </span>
             </div>
           </div>
 
-          <div className="flex-shrink-0 border-b border-[rgba(253,251,212,0.12)] px-4 py-3">
+          <div className="flex-shrink-0 border-b border-border px-4 py-3">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-muted)]" />
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Buscar conversaciones..."
-                className="h-11 rounded-xl border border-[rgba(253,251,212,0.12)] bg-[rgba(253,251,212,0.06)] pl-10 text-[var(--color-bg)] placeholder:text-[rgba(253,251,212,0.5)] focus-visible:ring-0"
+                className="h-11 rounded-xl border-border bg-[#ffffff] pl-10 text-foreground placeholder:text-muted-foreground focus-visible:ring-primary/20"
               />
             </div>
           </div>
@@ -363,10 +475,10 @@ function MessagesPageContent() {
             <ScrollArea className="h-full">
               <div className="space-y-2 p-2.5">
                 {conversations.length === 0 ? (
-                  <div className="flex h-40 items-center justify-center rounded-[18px] border border-dashed border-[rgba(253,251,212,0.14)] bg-[rgba(253,251,212,0.03)] px-6 text-center">
+                  <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-border bg-[#ffffff] px-6 text-center">
                     <div className="space-y-2">
-                      <AlertCircle className="mx-auto h-5 w-5 text-[var(--color-text-muted)]" />
-                      <p className="text-sm text-[rgba(253,251,212,0.72)]">No hay conversaciones aún</p>
+                      <AlertCircle className="mx-auto h-5 w-5 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">No hay conversaciones aún</p>
                     </div>
                   </div>
                 ) : (
@@ -375,38 +487,31 @@ function MessagesPageContent() {
                     const isActive = partnerId === receiverId;
 
                     return (
-                      <Button
-                        type="button"
+                      <button
                         key={c.id}
                         onClick={() => openConversation(partnerId)}
-                        variant="ghost"
-                        className={`group h-auto w-full rounded-[18px] border px-4 py-3 text-left transition-all duration-200 ${
+                        className={`group w-full rounded-xl border px-4 py-3 text-left transition-all duration-200 ${
                           isActive
-                            ? "border-[rgba(253,251,212,0.16)] bg-[rgba(253,251,212,0.08)] shadow-[inset_0_0_0_1px_rgba(253,251,212,0.04)]"
-                            : "border-transparent hover:border-[rgba(253,251,212,0.12)] hover:bg-[rgba(253,251,212,0.05)]"
+                            ? "border-[#95C9FC] bg-[#C6E2FE] shadow-sm"
+                            : "border-transparent hover:border-border hover:bg-[#F8FBFF]"
                         }`}
                       >
                         <div className="flex items-start gap-3">
-                          <Avatar className="h-11 w-11 flex-shrink-0 border border-[rgba(253,251,212,0.14)]">
-                            <AvatarImage src={c.partnerAvatar} />
-                            <AvatarFallback className="bg-[var(--color-bg)] text-[var(--color-surface)]">
-                              {c.partnerName.slice(0, 2).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
+                          <UserAvatar name={c.partnerName} size="mlg" avatarUrl={c.partnerAvatar} />
 
                           <div className="min-w-0 flex-1">
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
-                                <div className="truncate text-sm font-semibold text-[var(--color-bg)]">
+                                <div className="truncate text-sm font-semibold text-foreground">
                                   {c.partnerName}
                                 </div>
-                                <div className="mt-1 truncate text-xs text-[rgba(253,251,212,0.68)]">
+                                <div className="mt-1 truncate text-xs text-muted-foreground">
                                   {c.last_message || "Sin mensajes"}
                                 </div>
                               </div>
 
                               {c.last_message_at && (
-                                <div className="flex-shrink-0 text-[11px] text-[rgba(253,251,212,0.55)]">
+                                <div className="flex-shrink-0 text-[11px] text-muted-foreground">
                                   {new Date(c.last_message_at).toLocaleTimeString([], {
                                     hour: "2-digit",
                                     minute: "2-digit",
@@ -416,7 +521,7 @@ function MessagesPageContent() {
                             </div>
                           </div>
                         </div>
-                      </Button>
+                      </button>
                     );
                   })
                 )}
@@ -425,31 +530,43 @@ function MessagesPageContent() {
           </div>
         </aside>
 
-        <section className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-[22px] border border-[rgba(253,251,212,0.12)] bg-[var(--color-surface)] shadow-[0_24px_60px_rgba(56,36,13,0.18)]">
-          <div className="flex-shrink-0 border-b border-[rgba(253,251,212,0.12)] px-5 py-4">
+        <section className={`flex min-w-0 flex-1 flex-col overflow-hidden ${appPanelClass}`}>
+          <div className="flex-shrink-0 border-b border-border px-5 py-4">
             <div className="flex items-center justify-between gap-4">
               <div className="flex min-w-0 items-center gap-3">
-                <Avatar className="h-11 w-11 flex-shrink-0 border border-[rgba(253,251,212,0.14)]">
-                  <AvatarImage src={resolvedAvatar} />
-                  <AvatarFallback className="bg-[var(--color-bg)] text-[var(--color-surface)]">
-                    {resolvedName.slice(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
+                <UserAvatar name={resolvedName} size="mlg" avatarUrl={resolvedAvatar} />
 
                 <div className="min-w-0">
-                  <h3 className="truncate text-sm font-semibold text-[var(--color-bg)]">
+                  <h3 className="truncate text-sm font-semibold text-foreground">
                     {resolvedName}
                   </h3>
-                  <div className="mt-1 flex items-center gap-2 text-xs text-[rgba(253,251,212,0.66)]">
-                    <span className="h-2 w-2 rounded-full bg-[#d7f0b2]" />
+                  <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="h-2 w-2 rounded-full bg-semantic-success" />
                     <span>{conversationId ? "En línea" : "Selecciona un chat"}</span>
                   </div>
                 </div>
               </div>
 
-              <Button type="button" variant="ghost" className="h-10 w-10 rounded-full border border-[rgba(253,251,212,0.12)] bg-transparent p-0 text-[rgba(253,251,212,0.72)] transition-all hover:bg-[rgba(253,251,212,0.06)] hover:text-[var(--color-bg)]">
-                <MoreHorizontal className="h-5 w-5" />
-              </Button>
+              <div className="flex shrink-0 items-center gap-2">
+              {receiverId && isUuid(receiverId) ? (
+                <>
+                  <Link
+                    href={`/profile/${receiverId}`}
+                    className="inline-flex h-10 items-center rounded-full border border-[#2563EB]/20 bg-[#EEF6FF] px-4 text-sm font-semibold text-[#2563EB] transition-colors hover:bg-[#E0EFFF]"
+                  >
+                    Ver perfil
+                  </Link>
+                  <Button
+                    type="button"
+                    onClick={openBookingDialog}
+                    className="h-10 rounded-full bg-[#95C9FC] px-4 text-sm font-semibold text-[#10314F] hover:bg-[#7FB8F5]"
+                  >
+                    <CalendarDays className="mr-2 h-4 w-4" />
+                    Reservar
+                  </Button>
+                </>
+              ) : null}
+              </div>
             </div>
           </div>
 
@@ -457,8 +574,8 @@ function MessagesPageContent() {
             <ScrollArea ref={scrollRef} className="h-full pr-2">
               <div className="flex flex-col gap-4">
                 {messages.length === 0 ? (
-                  <div className="flex min-h-[24rem] items-center justify-center rounded-[18px] border border-dashed border-[rgba(253,251,212,0.12)] bg-[rgba(253,251,212,0.03)] px-6 text-center">
-                    <p className="text-sm text-[rgba(253,251,212,0.7)]">Inicia una conversación</p>
+                  <div className="flex min-h-[24rem] items-center justify-center rounded-xl border border-dashed border-border bg-[#F8FBFF] px-6 text-center">
+                    <p className="text-sm text-muted-foreground">Inicia una conversación</p>
                   </div>
                 ) : (
                   messages.map((m: Message) => {
@@ -474,36 +591,26 @@ function MessagesPageContent() {
                         className={`flex items-end gap-3 ${isMe ? "flex-row-reverse" : ""}`}
                       >
                         {!isMe && (
-                          <Avatar className="h-8 w-8 flex-shrink-0 border border-[rgba(253,251,212,0.12)]">
-                            <AvatarImage src={resolvedAvatar} />
-                            <AvatarFallback className="bg-[var(--color-bg)] text-[var(--color-surface)] text-xs">
-                              {resolvedName.slice(0, 1).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
+                          <UserAvatar name={resolvedName} size="sm" avatarUrl={resolvedAvatar} />
                         )}
 
                         <div className={`flex max-w-[min(34rem,78%)] flex-col ${isMe ? "items-end" : "items-start"}`}>
                           <div
-                            className={`rounded-[18px] border px-4 py-3 shadow-[0_12px_24px_rgba(0,0,0,0.08)] ${
+                            className={`rounded-2xl border px-4 py-3 shadow-sm ${
                               isMe
-                                ? "rounded-br-md border-[rgba(253,251,212,0.16)] bg-[rgba(253,251,212,0.08)] text-[var(--color-bg)]"
-                                : "rounded-bl-md border-[rgba(253,251,212,0.14)] bg-[rgba(253,251,212,0.04)] text-[rgba(253,251,212,0.96)]"
+                                ? "rounded-br-md border-[#95C9FC] bg-[#95C9FC] text-[#10314f]"
+                                : "rounded-bl-md border-border bg-[#F8FBFF] text-foreground"
                             }`}
                           >
                             <p className="break-words text-sm leading-6">{m.content}</p>
                           </div>
-                          <span className="mt-1.5 text-[11px] text-[rgba(253,251,212,0.52)]">
+                          <span className="mt-1.5 text-[11px] text-muted-foreground">
                             {time}
                           </span>
                         </div>
 
                         {isMe && (
-                          <Avatar className="h-8 w-8 flex-shrink-0 border border-[rgba(253,251,212,0.12)]">
-                            <AvatarImage src={resolvedAvatar} />
-                            <AvatarFallback className="bg-[var(--color-bg)] text-[var(--color-surface)] text-xs">
-                              {resolvedName.slice(0, 1).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
+                          <UserAvatar name={meDisplayName} size="sm" avatarUrl={meAvatar} />
                         )}
                       </div>
                     );
@@ -513,17 +620,17 @@ function MessagesPageContent() {
             </ScrollArea>
           </div>
 
-          <div className="flex-shrink-0 border-t border-[rgba(253,251,212,0.12)] px-4 py-4 lg:px-5">
+          <div className="flex-shrink-0 border-t border-border px-4 py-4 lg:px-5">
             <form className="flex items-end gap-3" onSubmit={handleSendMessage}>
               <Input
                 value={newMessage}
                 onChange={(event: ChangeEvent<HTMLInputElement>) => setNewMessage(event.target.value)}
-                className="h-12 rounded-xl border border-[rgba(253,251,212,0.12)] bg-[rgba(253,251,212,0.06)] px-4 text-[var(--color-bg)] placeholder:text-[rgba(253,251,212,0.45)] focus-visible:ring-0"
+                className="h-12 rounded-xl border-border bg-[#F8FBFF] px-4 text-foreground placeholder:text-muted-foreground focus-visible:ring-primary/20"
                 placeholder="Escribe un mensaje..."
               />
               <Button
                 type="submit"
-                className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-[var(--color-bg)] text-[var(--color-surface)] transition-all hover:opacity-90"
+                className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-[#CCFBF1] text-[#0F766E] transition-all hover:bg-[#B2F5EA]"
               >
                 <Send className="h-4 w-4" />
               </Button>
@@ -531,6 +638,47 @@ function MessagesPageContent() {
           </div>
         </section>
       </div>
+
+      <Dialog open={bookingDialogOpen} onOpenChange={setBookingDialogOpen}>
+        <DialogContent className="w-[min(92vw,460px)]">
+          <DialogHeader>
+            <DialogTitle>Crear reserva</DialogTitle>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-2">
+              <label className="text-sm font-medium text-foreground" htmlFor="booking-date">Fecha</label>
+              <Input id="booking-date" type="date" value={bookingDate} onChange={(event) => setBookingDate(event.target.value)} />
+            </div>
+
+            <div className="grid gap-2">
+              <label className="text-sm font-medium text-foreground" htmlFor="booking-time">Hora</label>
+              <Input id="booking-time" type="time" value={bookingTime} onChange={(event) => setBookingTime(event.target.value)} />
+            </div>
+
+            <div className="grid gap-2">
+              <label className="text-sm font-medium text-foreground" htmlFor="booking-duration">Duración en minutos</label>
+              <Input
+                id="booking-duration"
+                type="number"
+                min={30}
+                step={15}
+                value={bookingDurationMinutes}
+                onChange={(event) => setBookingDurationMinutes(Number(event.target.value) || 60)}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setBookingDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button type="button" onClick={handleCreateBooking} disabled={bookingSubmitting}>
+              {bookingSubmitting ? "Creando..." : "Confirmar reserva"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

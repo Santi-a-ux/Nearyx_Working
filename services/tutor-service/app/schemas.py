@@ -34,3 +34,13 @@ class TutorProfileOut(TutorProfileBase):
 class TutorListOut(BaseModel):
     tutors: List[TutorProfileOut]
     total: int
+
+
+class TutorRatingIn(BaseModel):
+    rating: int = Field(ge=1, le=5)
+
+
+class TutorRatingOut(BaseModel):
+    my_rating: Optional[int] = None
+    average_rating: Optional[float] = None
+    ratings_count: int = 0
