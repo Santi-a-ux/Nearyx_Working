@@ -1,6 +1,10 @@
-/** Tarjetas y paneles alineados con Mi perfil (borde #C6E2FE vía token `border`). */
-export const appCardClass = "rounded-[28px] border border-border bg-white shadow-sm";
-export const appCardSoftClass = "rounded-[28px] border border-border bg-[#F8FBFF] shadow-sm";
-export const appCardInnerClass = "rounded-2xl border border-border/70 bg-[#F8FBFF] p-4";
-export const appPanelClass = "rounded-2xl border border-border bg-white shadow-sm";
-export const appPanelSoftClass = "rounded-2xl border border-border bg-[#F8FBFF] shadow-sm";
+/** Tarjetas y paneles — tokens shadcn + elevación de la guía Nearyx. */
+export const appCardClass = "rounded-2xl border border-border bg-card shadow-sm";
+export const appCardSoftClass = "rounded-2xl border border-border bg-muted/40 shadow-sm";
+export const appCardInnerClass = "rounded-xl border border-border bg-muted/30 p-4";
+export const appPanelClass = "rounded-xl border border-border bg-card shadow-sm";
+export const appPanelSoftClass = "rounded-xl border border-border bg-muted/40 shadow-sm";
+
+/** Card con hover suave (guía §5). */
+export const cardElevatedClass =
+  "rounded-2xl border border-border bg-card shadow-sm transition-[box-shadow,transform] duration-150 ease-out hover:-translate-y-px hover:shadow-md";

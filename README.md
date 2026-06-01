@@ -120,6 +120,8 @@ uvicorn app.main:app --reload --port 8001
 
 Ver `AGENT.md` para la documentación completa de arquitectura, endpoints, modelos de datos y convenciones de código.
 
+Guía visual (Fraunces + Geist, tokens shadcn): [`docs/design-system.md`](docs/design-system.md).
+
 ## Flujo principal de demo
 
 1. Registro como estudiante → JWT

@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 const inputClass =
-  "h-12 rounded-xl border-border bg-[#F8FBFF] pl-10 pr-4 text-[#10314F] shadow-sm placeholder:text-muted-foreground focus-visible:border-[#95C9FC] focus-visible:ring-2 focus-visible:ring-[#C6E2FE]/50";
+  "h-12 rounded-xl border-input bg-muted pl-10 pr-4 shadow-sm placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30";
 
 export default function LoginPage() {
   const [state, formAction, isPending] = useActionState(loginAction, null);
@@ -23,15 +23,14 @@ export default function LoginPage() {
   }, [state]);
 
   return (
-    <div>
-      <div className="mb-8">
-        <h1 className="mb-1 text-2xl font-bold tracking-tight text-[#10314F]">Bienvenido de vuelta</h1>
-        <p className="text-sm text-muted-foreground">Ingresa tus datos para continuar</p>
-      </div>
+    <div className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
+      <div className="text-label text-primary">Bienvenido de vuelta</div>
+      <h1 className="text-display-lg font-display mt-3 tracking-tight">Entra a tu cuenta.</h1>
+      <p className="text-body mt-3 text-muted-foreground">Continúa donde lo dejaste y descubre quién está cerca.</p>
 
-      <form action={formAction} className="space-y-4">
+      <form action={formAction} className="mt-10 space-y-4">
         <div className="space-y-1.5">
-          <label className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">Correo electrónico</label>
+          <label className="text-label text-muted-foreground">Correo electrónico</label>
           <div className="relative">
             <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#2563EB]" />
             <Input name="email" type="email" placeholder="correo@ejemplo.com" required disabled={isPending} className={inputClass} />
@@ -39,7 +38,7 @@ export default function LoginPage() {
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">Contraseña</label>
+          <label className="text-label text-muted-foreground">Contraseña</label>
           <div className="relative">
             <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#2563EB]" />
             <Input name="password" type="password" placeholder="••••••••" required disabled={isPending} className={inputClass} />
@@ -50,11 +49,7 @@ export default function LoginPage() {
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700">{state.error}</div>
         ) : null}
 
-        <Button
-          type="submit"
-          disabled={isPending}
-          className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#95C9FC] text-sm font-bold text-[#10314F] hover:bg-[#7FB8F5]"
-        >
+        <Button type="submit" variant="brand" size="lg" disabled={isPending} className="mt-2 h-12 w-full gap-2">
           {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           {isPending ? "Entrando..." : "Entrar"}
         </Button>

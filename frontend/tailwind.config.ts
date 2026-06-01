@@ -48,12 +48,12 @@ const config = {
         },
       },
       fontFamily: {
-        display: ["var(--font-heading)", "Manrope", "sans-serif"],
-        heading: ["var(--font-heading)", "Manrope", "sans-serif"],
-        body: ["var(--font-body)", "Lato", "sans-serif"],
-        sans: ["var(--font-body)", "Lato", "sans-serif"],
-        main: ["var(--font-body)", "Lato", "sans-serif"],
-        mono: ["var(--font-mono)", "JetBrains Mono", "monospace"],
+        display: ["var(--font-display)", "Fraunces", "Georgia", "serif"],
+        heading: ["var(--font-display)", "Fraunces", "Georgia", "serif"],
+        body: ["var(--font-sans)", "Geist", "system-ui", "sans-serif"],
+        sans: ["var(--font-sans)", "Geist", "system-ui", "sans-serif"],
+        main: ["var(--font-sans)", "Geist", "system-ui", "sans-serif"],
+        mono: ["var(--font-mono)", "Geist Mono", "ui-monospace", "monospace"],
       },
       fontSize: {
         xs: ["12px", "18px"],

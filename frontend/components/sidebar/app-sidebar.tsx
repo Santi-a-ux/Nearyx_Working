@@ -18,7 +18,7 @@ export function AppSidebar({
   const pathname = usePathname();
 
   return (
-    <aside className="fixed left-0 top-14 z-40 flex h-[calc(100vh-3.5rem)] w-[220px] flex-col border-r border-[var(--border)] bg-[#F8FBFF] px-3 py-4">
+    <aside className="fixed left-0 top-14 z-40 flex h-[calc(100vh-3.5rem)] w-[220px] flex-col border-r border-border bg-background px-3 py-4">
       <nav className="space-y-1">
         {items.map((item) => {
           const isActive = pathname === item.url || pathname?.startsWith(`${item.url}/`);
@@ -29,10 +29,10 @@ export function AppSidebar({
               href={item.url}
               aria-current={isActive ? "page" : undefined}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-[9px] text-sm font-semibold transition-colors",
+                "text-body flex items-center gap-3 rounded-lg px-3 py-2 font-medium transition-colors",
                 isActive
-                  ? "bg-[#95C9FC] text-[#000000] shadow-sm"
-                  : "text-[#000000] hover:bg-[rgba(149,201,252,0.18)] hover:text-[#10314f]"
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
               <item.icon className="h-4 w-4 shrink-0" />

@@ -19,6 +19,8 @@ const badgeVariants = cva(
         ghost:
           "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
         link: "text-primary underline-offset-4 hover:underline",
+        expert: "border-transparent bg-[var(--expert)]/12 text-[var(--expert)] [a]:hover:bg-[var(--expert)]/20",
+        student: "border-transparent bg-[var(--student)]/12 text-[var(--student)] [a]:hover:bg-[var(--student)]/20",
       },
     },
     defaultVariants: {

@@ -1,26 +1,24 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono, Lato, Manrope } from "next/font/google";
+import { Fraunces, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-const lato = Lato({
-  variable: "--font-lato",
+const fraunces = Fraunces({
   subsets: ["latin"],
-  weight: ["400", "700", "900"],
+  variable: "--font-fraunces",
+  axes: ["SOFT", "opsz"],
 });
 
-const manrope = Manrope({
-  variable: "--font-manrope",
+const geistSans = Geist({
   subsets: ["latin"],
-  weight: ["500", "700", "800"],
+  variable: "--font-geist-sans",
 });
 
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-mono",
+const geistMono = Geist_Mono({
   subsets: ["latin"],
-  weight: ["400", "600"],
+  variable: "--font-geist-mono",
 });
 
 export const metadata: Metadata = {
@@ -36,10 +34,10 @@ export default function RootLayout({
   return (
     <html
       lang="es"
-      className={`${lato.variable} ${manrope.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className={`${fraunces.variable} ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col font-body bg-background text-foreground">
+      <body className="min-h-full flex flex-col font-sans bg-background text-foreground">
         <QueryProvider>
           <TooltipProvider>
             {children}

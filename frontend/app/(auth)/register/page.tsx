@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 const inputClass =
-  "h-12 rounded-xl border-border bg-[#F8FBFF] pl-10 pr-4 text-[#10314F] shadow-sm placeholder:text-muted-foreground focus-visible:border-[#95C9FC] focus-visible:ring-2 focus-visible:ring-[#C6E2FE]/50";
+  "h-12 rounded-xl border-input bg-muted pl-10 pr-4 shadow-sm placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30";
 
 export default function RegisterPage() {
   const [state, formAction, isPending] = useActionState(registerAction, null);
@@ -26,13 +26,13 @@ export default function RegisterPage() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="mb-1 text-2xl font-bold tracking-tight text-[#10314F]">Crea tu cuenta</h1>
-        <p className="text-sm text-muted-foreground">Únete a estudiantes y expertos en Medellín</p>
+        <h1 className="text-display-md font-display mb-1 tracking-tight">Crea tu cuenta</h1>
+        <p className="text-body text-muted-foreground">Únete a estudiantes y expertos en Medellín</p>
       </div>
 
       <form action={formAction} className="space-y-4">
         <div className="space-y-1.5">
-          <label className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">Nombre completo</label>
+          <label className="text-label text-muted-foreground">Nombre completo</label>
           <div className="relative">
             <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#2563EB]" />
             <Input name="fullName" type="text" placeholder="Juan Pérez" required disabled={isPending} className={inputClass} />
@@ -40,7 +40,7 @@ export default function RegisterPage() {
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">Correo electrónico</label>
+          <label className="text-label text-muted-foreground">Correo electrónico</label>
           <div className="relative">
             <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#2563EB]" />
             <Input name="email" type="email" placeholder="correo@ejemplo.com" required disabled={isPending} className={inputClass} />
@@ -48,7 +48,7 @@ export default function RegisterPage() {
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">Contraseña</label>
+          <label className="text-label text-muted-foreground">Contraseña</label>
           <div className="relative">
             <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#2563EB]" />
             <Input name="password" type="password" placeholder="Mínimo 8 caracteres" required disabled={isPending} className={inputClass} />
@@ -56,7 +56,7 @@ export default function RegisterPage() {
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">Quiero ser...</label>
+          <label className="text-label text-muted-foreground">Quiero ser...</label>
           <div className="grid grid-cols-2 gap-2">
             <Button
               type="button"
@@ -94,11 +94,7 @@ export default function RegisterPage() {
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700">{state.error}</div>
         ) : null}
 
-        <Button
-          type="submit"
-          disabled={isPending}
-          className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#95C9FC] text-sm font-bold text-[#10314F] hover:bg-[#7FB8F5]"
-        >
+        <Button type="submit" variant="brand" size="lg" disabled={isPending} className="mt-2 h-12 w-full gap-2">
           {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           {isPending ? "Creando cuenta..." : "Crear cuenta gratis"}
         </Button>

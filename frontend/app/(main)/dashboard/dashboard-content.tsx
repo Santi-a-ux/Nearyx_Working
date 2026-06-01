@@ -1,19 +1,21 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Heart, ImagePlus, MessageSquare, Share2, Star, Upload, X } from "lucide-react";
+import { Heart, ImagePlus, MessageSquare, Send, Share2, Upload, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/user-avatar";
+import { DashboardRightPanel } from "@/components/dashboard/dashboard-right-panel";
 import InlineTutorRating from "@/components/profile/inline-tutor-rating";
+import { cardElevatedClass } from "@/lib/surface-styles";
 import { SAMPLE_POSTS } from "@/lib/constants";
 import { isExpertFeedAuthorRole, mapSessionRoleToFeedAuthorRole, type FeedAuthorRole } from "@/lib/feed-author-role";
 import { RATING_UPDATED_EVENT } from "@/lib/rating-events";
@@ -46,6 +48,10 @@ interface TutorSidebarItem {
   is_available?: boolean;
   average_rating?: number | null;
   ratings_count?: number;
+  lat?: number;
+  lng?: number;
+  latitude?: number;
+  longitude?: number;
 }
 
 interface TutorRatingSummary {
@@ -148,13 +154,13 @@ async function fetchFeaturedExperts(): Promise<{ tutors: TutorSidebarItem[] }> {
       })
     );
 
-    return { tutors: sortExpertsByRating(enriched).slice(0, 4) };
+    return { tutors: sortExpertsByRating(enriched).slice(0, 8) };
   } catch {
     return { tutors: [] };
   }
 }
 
-export function DashboardContent() {
+export function DashboardContent({ mapboxAccessToken = "" }: { mapboxAccessToken?: string }) {
   const queryClient = useQueryClient();
   const [composerOpen, setComposerOpen] = useState(false);
   const [newPost, setNewPost] = useState("");
@@ -326,28 +332,35 @@ export function DashboardContent() {
   };
 
   return (
-    <div className="mx-auto grid max-w-7xl gap-6 xl:grid-cols-[minmax(0,1fr)_260px]">
-      <section className="min-w-0 space-y-4">
-        <Card className="p-0 shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <UserAvatar name={currentUserLabel} size="md" avatarUrl={currentUserAvatar} />
+    <div className="mx-auto grid max-w-[1280px] gap-8 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <section className="min-w-0 space-y-5">
+        <div className={cn(cardElevatedClass, "p-5")}>
+          <div className="flex gap-3">
+            <UserAvatar name={currentUserLabel} size="md" avatarUrl={currentUserAvatar} />
+            <div className="min-w-0 flex-1">
               <Button
                 type="button"
                 variant="outline"
-                className="h-12 flex-1 justify-start rounded-2xl border border-border bg-[#ffffff] px-4 text-left text-[#3d4d5a] shadow-none hover:bg-[rgba(198,226,254,0.92)] hover:text-foreground"
+                className="h-auto min-h-12 w-full justify-start rounded-xl border-input bg-muted/50 px-4 py-3 text-left text-body text-muted-foreground shadow-none hover:bg-muted"
                 onClick={() => setComposerOpen(true)}
               >
-                ¿Qué estás pensando? Comparte texto, emojis o una imagen.
+                ¿Qué quieres aprender o enseñar hoy?
               </Button>
+              <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
+                <span className="text-caption text-muted-foreground">· Publicará cerca de tu ubicación</span>
+                <Button type="button" variant="brand" size="sm" onClick={() => setComposerOpen(true)}>
+                  Publicar
+                  <Send className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         <Dialog open={composerOpen} onOpenChange={setComposerOpen}>
-          <DialogContent className="w-[min(92vw,720px)] max-w-[720px] border border-[#95C9FC] bg-[#95C9FC] p-0 text-[var(--ui-dark-panel-text)] shadow-[0_32px_80px_rgba(0,0,0,0.45)]">
-            <DialogHeader className="border-b border-[#95C9FC] px-5 py-4">
-              <DialogTitle className="text-center text-[1.15rem] font-semibold text-[#ffffff]">Crear publicación</DialogTitle>
+          <DialogContent className="w-[min(92vw,720px)] max-w-[720px] gap-0 border border-border bg-card p-0 shadow-lg">
+            <DialogHeader className="border-b border-border px-5 py-4">
+              <DialogTitle className="text-h3 text-center">Crear publicación</DialogTitle>
             </DialogHeader>
 
             <form
@@ -360,8 +373,8 @@ export function DashboardContent() {
               <div className="flex items-start gap-3">
                 <UserAvatar name={currentUserLabel} size="md" avatarUrl={currentUserAvatar} />
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-[#ffffff]">Tu publicación</p>
-                  <p className="text-xs text-[#10314f]/70">Solo texto, emojis e imágenes</p>
+                  <p className="text-body font-semibold">Tu publicación</p>
+                  <p className="text-caption text-muted-foreground">Texto, emojis e imágenes</p>
                 </div>
               </div>
 
@@ -369,12 +382,12 @@ export function DashboardContent() {
                 value={newPost}
                 onChange={(event: ChangeEvent<HTMLTextAreaElement>) => setNewPost(event.target.value)}
                 placeholder="¿Qué estás pensando?"
-                className="min-h-40 resize-none rounded-2xl border border-[#95C9FC] bg-[#95C9FC] px-4 py-3 text-[var(--ui-dark-panel-text)] placeholder:text-[#10314f]/60 focus:border-[#95C9FC] focus:bg-[#95C9FC]"
+                className="min-h-40 resize-none rounded-xl border-input bg-muted/40"
                 maxLength={500}
               />
 
               {attachedImagePreview ? (
-                <div className="relative overflow-hidden rounded-2xl border border-[#95C9FC] bg-[#95C9FC]">
+                <div className="relative overflow-hidden rounded-xl border border-border">
                   <img src={attachedImagePreview} alt="Vista previa de imagen" className="max-h-96 w-full object-cover" />
                   <Button
                     type="button"
@@ -396,14 +409,13 @@ export function DashboardContent() {
                 onChange={handleImageSelect}
               />
 
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#95C9FC] px-4 py-3">
-                <div className="flex items-center gap-2 text-sm font-medium text-[#ffffff]">
-                  <span>Agregar a tu publicación</span>
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3">
+                <div className="flex items-center gap-2 text-body font-medium">
+                  <span>Agregar imagen</span>
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                     size="icon-sm"
-                    className="rounded-full bg-[#95C9FC] text-[#10314f] hover:bg-[rgba(149,201,252,0.88)] hover:text-[#10314f]"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={imageUploading}
                   >
@@ -411,25 +423,25 @@ export function DashboardContent() {
                   </Button>
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                     size="icon-sm"
-                    className="rounded-full bg-[#95C9FC] text-[#10314f] hover:bg-[rgba(149,201,252,0.88)] hover:text-[#10314f]"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={imageUploading}
                   >
                     <Upload className="h-4 w-4" />
                   </Button>
-                  {imageUploading ? <span className="text-xs text-[#10314f]/70">Subiendo imagen...</span> : null}
+                  {imageUploading ? <span className="text-caption text-muted-foreground">Subiendo…</span> : null}
                 </div>
 
-                <span className="text-xs text-[#10314f]/70">{newPost.length}/500</span>
+                <span className="text-caption text-muted-foreground">{newPost.length}/500</span>
               </div>
 
-              <DialogFooter className="-mx-5 -mb-4 border-t border-[#95C9FC] bg-[#95C9FC] px-5 py-4">
+              <DialogFooter className="-mx-5 -mb-4 border-t border-border bg-muted/20 px-5 py-4">
                 <Button
                   type="submit"
+                  variant="brand"
                   disabled={!newPost.trim() || createPostMutation.isPending || imageUploading}
-                  className="h-11 rounded-full bg-[#95C9FC] px-6 text-sm font-semibold text-[#10314f] hover:bg-[rgba(149,201,252,0.88)]"
+                  className="min-w-[140px]"
                 >
                   {createPostMutation.isPending ? "Publicando..." : "Publicar"}
                 </Button>
@@ -438,128 +450,51 @@ export function DashboardContent() {
           </DialogContent>
         </Dialog>
 
-        <div className="bg-white">
-          {searchQuery ? (
-            filteredPosts.length > 0 ? null : (
-              <Card className="rounded-none border-0 border-b border-dashed border-[#eef2f7] bg-white shadow-none last:border-b-0">
-                <CardContent className="p-5 text-sm text-muted-foreground">
-                No hay publicaciones que coincidan con “{searchQuery}”. Prueba con otra palabra o temática.
-                </CardContent>
-              </Card>
-            )
+        <div className="space-y-5">
+          {searchQuery && filteredPosts.length === 0 ? (
+            <div className={cn(cardElevatedClass, "p-5 text-body text-muted-foreground")}>
+              No hay publicaciones que coincidan con “{searchQuery}”.
+            </div>
           ) : null}
 
-          {isLoading && posts.length === 0 ? (
-            Array.from({ length: 3 }).map((_, index) => (
-              <Card key={index} className="rounded-none border-0 border-b border-[#eef2f7] bg-white shadow-none last:border-b-0">
-                <CardContent className="p-4">
-                <div className="h-6 w-48 rounded bg-[#f4ffee]" />
-                <div className="mt-4 h-24 rounded bg-[#f3f6fb]" />
-                </CardContent>
-              </Card>
-            ))
-          ) : (
-            filteredPosts.map((post: FeedPost, index: number) => (
-              <PostCard key={post.id} post={post} toneIndex={index} isLast={index === filteredPosts.length - 1} />
-            ))
-          )}
+          {isLoading && posts.length === 0
+            ? Array.from({ length: 3 }).map((_, index) => (
+                <div key={index} className={cn(cardElevatedClass, "h-40 animate-pulse bg-muted/40")} />
+              ))
+            : filteredPosts.map((post: FeedPost, index: number) => (
+                <PostCard key={post.id} post={post} toneIndex={index} />
+              ))}
         </div>
       </section>
 
-      <aside className="space-y-4 self-start xl:sticky xl:top-[calc(3.5rem+1rem)] xl:w-[260px]">
-        <Card className="p-0 bg-[#F8FBFF]">
-          <CardHeader className="p-4 pb-0">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">Expertos destacados</p>
-              <h2 className="mt-1 text-sm font-bold text-foreground">Mejor calificados</h2>
-            </div>
-            <Badge variant="default" className="rounded-full bg-[#ff5757] text-[var(--primary-foreground)] shadow-sm">
-              En vivo
-            </Badge>
-          </div>
-          </CardHeader>
-
-          <CardContent className="mt-0 p-4 pt-4">
-          <div className="space-y-3">
-            {tutors.length === 0 ? (
-              <Card className="border-dashed p-0 bg-[#ffffff]">
-                <CardContent className="p-4 text-sm text-muted-foreground">
-                Aún no hay expertos para mostrar.
-                </CardContent>
-              </Card>
-            ) : (
-              tutors.map((tutor) => (
-                <Card key={tutor.user_id} className="p-0 bg-[#F8FBFF]">
-                  <CardContent className="flex items-center gap-3 p-3">
-                  <div className="relative shrink-0">
-                    <UserAvatar name={tutor.display_name || tutor.full_name || "Experto"} size="sm" avatarUrl={tutor.avatar_url} />
-                    <span className={cn("absolute -right-0.5 bottom-0 h-2.5 w-2.5 rounded-full border-2 border-white", tutor.is_available ? "bg-[#95C9FC]" : "bg-[var(--neutral-400)]")} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-foreground">{tutor.display_name || tutor.full_name || "Experto"}</p>
-                    <p className="truncate text-xs text-muted-foreground">{tutor.specialties?.[0] || "Experiencia general"}</p>
-                    <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                      <Star className="h-3.5 w-3.5 text-amber-500" />
-                      <span>
-                        {typeof tutor.average_rating === "number"
-                          ? `${tutor.average_rating.toFixed(1)} (${tutor.ratings_count || 0})`
-                          : "Sin calificaciones"}
-                      </span>
-                    </div>
-                    <Link href={`/messages?userId=${tutor.user_id}`} className="mt-2 inline-flex text-xs font-bold text-primary hover:text-brand-hover">
-                      Contactar
-                    </Link>
-                  </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-[#95C9FC] p-0 text-[#10314f] shadow-[0_18px_40px_rgba(15,23,42,0.22)] transition-transform hover:-translate-y-0.5">
-          <CardContent className="p-4">
-          <Link href="/explore" className="block">
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#10314f]/80">Mapa vivo</p>
-          <h3 className="mt-2 text-lg font-bold text-[#10314f]">Explorar en el mapa</h3>
-          <p className="mt-2 text-sm text-[#10314f]/82">Revisa expertos cercanos, categorías activas y disponibilidad en tiempo real.</p>
-          </Link>
-          </CardContent>
-        </Card>
-      </aside>
+      <div className="xl:sticky xl:top-[calc(3.5rem+1rem)] xl:self-start">
+        <DashboardRightPanel mapboxAccessToken={mapboxAccessToken} tutors={tutors} />
+      </div>
     </div>
   );
 }
 
-function PostCard({ post, toneIndex, isLast }: { post: FeedPost; toneIndex: number; isLast: boolean }) {
+function PostCard({ post, toneIndex }: { post: FeedPost; toneIndex: number }) {
   const [liked, setLiked] = useState(false);
   const [likes, setLikes] = useState(12 + toneIndex);
   const isExpert = isExpertFeedAuthorRole(post.author_role) || post.author_role === "Tutor";
 
   return (
-    <article className={cn("group border-b border-[#f8fbff] bg-[#f8fbff] transition-all hover:bg-[#ffffff] hover:shadow-[0_1px_0_rgba(217,227,244,0.35),0_10px_24px_rgba(15,23,42,0.06)] hover:rounded-2xl", isLast && "border-b-0")}>
-      <div className="p-4 transition-colors">
+    <article className={cn(cardElevatedClass, "p-6")}>
         <div className="flex items-start gap-3">
           <UserAvatar name={post.author_name || "Usuario"} size="md" avatarUrl={post.author_avatar} />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <h3 className="text-sm font-semibold text-[#111827]">{post.author_name || "Usuario"}</h3>
-              <span className="text-xs text-[#6b7280]">•</span>
-              <span className="text-xs text-[#6b7280]">{new Intl.DateTimeFormat("es-CO", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(post.created_at))}</span>
-              <Badge
-                variant={isExpert ? "default" : "secondary"}
-                className={cn(
-                  "rounded-full px-2 py-0.5 text-[11px]",
-                  isExpert ? "bg-[#fa5e03] text-[#ffffff]" : "bg-[#4400ff] text-[#ffffff]"
-                )}
-              >
+              <h3 className="text-h3">{post.author_name || "Usuario"}</h3>
+              <Badge variant={isExpert ? "expert" : "student"} className="rounded-full px-2 py-0.5 text-[11px]">
                 {isExpert ? "Experto" : "Estudiante"}
               </Badge>
             </div>
+            <div className="text-caption mt-0.5 text-muted-foreground">
+              {new Intl.DateTimeFormat("es-CO", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(post.created_at))}
+            </div>
 
-            <p className="mt-2 whitespace-pre-wrap text-[15px] leading-6 text-[#111827]">{post.content}</p>
+            <p className="text-body-lg mt-4 whitespace-pre-wrap">{post.content}</p>
 
             {post.image_url ? (
               <div className="mt-3 overflow-hidden rounded-2xl border border-border bg-[#f8fbff]">
@@ -567,38 +502,43 @@ function PostCard({ post, toneIndex, isLast }: { post: FeedPost; toneIndex: numb
               </div>
             ) : null}
 
-            <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-[#4b5563]">
+            <footer className="mt-5 flex flex-wrap items-center gap-1 border-t border-border pt-3">
               <Button
                 type="button"
+                variant="ghost"
+                size="sm"
+                className="gap-2"
                 onClick={() => {
                   setLiked((previous) => {
                     setLikes((value) => value + (previous ? -1 : 1));
                     return !previous;
                   });
                 }}
-                variant="ghost"
-                size="sm"
-                className="h-8 rounded-full border border-transparent px-3 text-xs text-[#4b5563] transition-colors hover:border-[#d9e3f4] hover:bg-[#eaf1ff] hover:text-[#0058ff]"
               >
-                <Heart className={cn("h-4 w-4", liked && "fill-current text-[#0058ff]")} />
-                {likes}
+                <Heart className={cn("h-4 w-4", liked && "fill-current text-primary")} />
+                <span className="text-caption">{likes}</span>
               </Button>
-              <Button type="button" variant="ghost" size="sm" className="h-8 rounded-full border border-transparent px-3 text-xs text-[#4b5563] transition-colors hover:border-[#d9e3f4] hover:bg-[#eaf1ff] hover:text-[#0058ff]">
+              <Button type="button" variant="ghost" size="sm" className="gap-2">
                 <MessageSquare className="h-4 w-4" />
-                Comentar
+                <span className="text-caption">Comentar</span>
               </Button>
-              <Button type="button" variant="ghost" size="sm" className="h-8 rounded-full border border-transparent px-3 text-xs text-[#4b5563] transition-colors hover:border-[#d9e3f4] hover:bg-[#eaf1ff] hover:text-[#0058ff]">
+              <Button type="button" variant="ghost" size="sm">
                 <Share2 className="h-4 w-4" />
-                Compartir
               </Button>
-            </div>
+              {isExpert && isUuid(post.author_id) ? (
+                <div className="ml-auto">
+                  <Link href={`/messages?userId=${post.author_id}`} className={buttonVariants({ variant: "subtle", size: "sm" })}>
+                    Contactar
+                  </Link>
+                </div>
+              ) : null}
+            </footer>
 
             {isExpert && isUuid(post.author_id) ? (
               <InlineTutorRating tutorUserId={post.author_id} />
             ) : null}
           </div>
         </div>
-      </div>
     </article>
   );
 }
