@@ -40,7 +40,37 @@ git clone https://github.com/Santi-a-ux/Nearyx_Working.git
 cd Nearyx_Working
 cp .env.example .env
 cp frontend/.env.example frontend/.env.local
-# Edita .env y frontend/.env.local (Mapbox, JWT_SECRET, etc.)
+```
+
+Edita `.env` y `frontend/.env.local` con tus valores reales (sobre todo **Mapbox** y `JWT_SECRET`).
+
+#### Mapbox (obligatorio para `/explore`)
+
+1. Crea un token público en [Mapbox Access Tokens](https://account.mapbox.com/access-tokens/) (empieza por `pk.`).
+2. En **`.env`** (raíz), asigna el **mismo** token a las dos variables:
+
+   ```env
+   MAPBOX_PUBLIC_TOKEN=pk.tu_token_aqui
+   NEXT_PUBLIC_MAPBOX_TOKEN=pk.tu_token_aqui
+   ```
+
+3. Repite en `frontend/.env.local` si desarrollas sin Docker.
+4. **Guarda** los archivos antes de levantar Docker (si el editor no guarda, el contenedor leerá valores viejos).
+
+**No uses** placeholders como `your_mapbox_public_token` ni `tu_token_mapbox`.
+
+Tras cambiar el token, reconstruye el frontend:
+
+```bash
+docker compose build frontend --no-cache
+docker compose up -d --force-recreate frontend
+```
+
+Comprueba que el servidor ve el token:
+
+```bash
+curl http://localhost:3000/api/config/public
+# Debe incluir "mapboxConfigured":true
 ```
 
 ### 2. Levantar infraestructura base
@@ -53,8 +83,10 @@ bash scripts/verify-step1.sh
 ### 3. Levantar todos los servicios
 
 ```bash
-docker-compose up --build
+docker compose up --build -d
 ```
+
+App: http://localhost:3000 — Mapa: http://localhost:3000/explore
 
 ### 4. Verificar health checks
 

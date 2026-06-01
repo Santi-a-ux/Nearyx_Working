@@ -35,10 +35,14 @@ interface TutorsResponse {
 
 const MapboxMap = dynamic(() => import("@/components/map/MapboxMap"), {
   ssr: false,
-  loading: () => <Skeleton className="h-full min-h-144 w-full rounded-2xl" />,
+  loading: () => <Skeleton className="h-full min-h-[calc(100vh-10rem)] w-full rounded-2xl" />,
 });
 
-export default function ExploreClient() {
+interface ExploreClientProps {
+  mapboxAccessToken?: string;
+}
+
+export default function ExploreClient({ mapboxAccessToken = "" }: ExploreClientProps) {
   const [tutors, setTutors] = useState<Tutor[]>([]);
   const [searchValue, setSearchValue] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
@@ -173,9 +177,13 @@ export default function ExploreClient() {
         </div>
       </aside>
 
-      <section className="relative min-w-0 flex-1 overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
-        <div className="h-full min-h-144 bg-background">
+      <section
+        className="relative min-w-0 flex-1 overflow-hidden rounded-2xl border border-border bg-white shadow-sm"
+        style={{ height: "calc(100vh - 10rem)", minHeight: 480 }}
+      >
+        <div className="h-full w-full bg-background">
           <MapboxMap
+            accessToken={mapboxAccessToken}
             topicFilter={activeSearch}
             searchResults={visibleTutors}
             onTutorsFound={(nextTutors, phase) => {

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { fetchApi } from '@/lib/api';
+import { isValidMapboxToken, pickMapboxToken } from '@/lib/mapbox-env';
 import { matchesTutorSearch, type TutorSearchRecord } from '@/lib/tutor-search';
 
 interface Tutor {
@@ -29,10 +30,14 @@ interface TutorsResponse {
 }
 
 interface MapboxMapProps {
+  accessToken?: string;
   topicFilter?: string;
   searchResults?: Tutor[];
   onTutorsFound?: (tutors: Tutor[], phase: 'searching' | 'found' | 'empty') => void;
 }
+
+const MAP_HEIGHT = 'calc(100vh - 10rem)';
+const MAP_MIN_HEIGHT = 480;
 
 const RADII = [2, 5, 10, 20, 50];
 const DEFAULT_CENTER: [number, number] = [-75.52, 5.07];
@@ -50,7 +55,7 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-export default function MapboxMap({ topicFilter, searchResults, onTutorsFound }: MapboxMapProps) {
+export default function MapboxMap({ accessToken = '', topicFilter, searchResults, onTutorsFound }: MapboxMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
@@ -63,7 +68,45 @@ export default function MapboxMap({ topicFilter, searchResults, onTutorsFound }:
   const [searchPhase, setSearchPhase] = useState<'idle' | 'searching' | 'found' | 'empty'>('idle');
   const [foundTutors, setFoundTutors] = useState<Tutor[]>([]);
   const [currentRadius, setCurrentRadius] = useState(0);
-  const hasMapboxToken = Boolean(process.env.NEXT_PUBLIC_MAPBOX_TOKEN);
+  const initialToken = pickMapboxToken(accessToken, process.env.NEXT_PUBLIC_MAPBOX_TOKEN);
+  const [resolvedToken, setResolvedToken] = useState(initialToken);
+  const [tokenStatus, setTokenStatus] = useState<'loading' | 'ready' | 'missing'>(
+    initialToken ? 'ready' : 'loading'
+  );
+
+  const hasMapboxToken = isValidMapboxToken(resolvedToken);
+
+  useEffect(() => {
+    const immediate = pickMapboxToken(accessToken, process.env.NEXT_PUBLIC_MAPBOX_TOKEN);
+    if (immediate) {
+      setResolvedToken(immediate);
+      setTokenStatus('ready');
+      return;
+    }
+
+    let cancelled = false;
+    setTokenStatus('loading');
+
+    void fetch('/api/config/public')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { mapboxToken?: string } | null) => {
+        if (cancelled) return;
+        const token = pickMapboxToken(data?.mapboxToken, process.env.NEXT_PUBLIC_MAPBOX_TOKEN);
+        if (token) {
+          setResolvedToken(token);
+          setTokenStatus('ready');
+        } else {
+          setTokenStatus('missing');
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setTokenStatus('missing');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken]);
 
   const clearMarkers = () => {
     markersRef.current.forEach((marker) => marker.remove());
@@ -320,9 +363,9 @@ export default function MapboxMap({ topicFilter, searchResults, onTutorsFound }:
   }, [topicFilter]);
 
   useEffect(() => {
-    if (map.current || !mapContainer.current) return;
+    if (!hasMapboxToken || map.current || !mapContainer.current) return;
 
-    mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? '';
+    mapboxgl.accessToken = resolvedToken;
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
@@ -333,7 +376,19 @@ export default function MapboxMap({ topicFilter, searchResults, onTutorsFound }:
 
     map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
+    const resizeMap = () => {
+      map.current?.resize();
+    };
+
+    const resizeObserver =
+      typeof ResizeObserver !== 'undefined' && mapContainer.current
+        ? new ResizeObserver(resizeMap)
+        : null;
+    resizeObserver?.observe(mapContainer.current);
+
     map.current.on('load', () => {
+      resizeMap();
+
       if (navigator.geolocation) {
         const onPosition = ({ coords }: GeolocationPosition) => {
           const center: [number, number] = [coords.longitude, coords.latitude];
@@ -369,6 +424,7 @@ export default function MapboxMap({ topicFilter, searchResults, onTutorsFound }:
     });
 
     return () => {
+      resizeObserver?.disconnect();
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
         watchIdRef.current = null;
@@ -379,17 +435,34 @@ export default function MapboxMap({ topicFilter, searchResults, onTutorsFound }:
       map.current?.remove();
       map.current = null;
     };
-  }, []);
+  }, [hasMapboxToken, resolvedToken]);
+
+  if (tokenStatus === 'loading') {
+    return (
+      <div
+        className="relative w-full animate-pulse overflow-hidden rounded-lg bg-slate-100"
+        style={{ height: MAP_HEIGHT, minHeight: MAP_MIN_HEIGHT }}
+      />
+    );
+  }
 
   if (!hasMapboxToken) {
     return (
-      <div className="relative h-full min-h-125 w-full overflow-hidden rounded-lg bg-slate-200">
+      <div
+        className="relative w-full overflow-hidden rounded-lg bg-slate-200"
+        style={{ height: MAP_HEIGHT, minHeight: MAP_MIN_HEIGHT }}
+      >
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.72),transparent_40%)]" />
         <div className="absolute inset-0 flex items-center justify-center p-6 text-center">
           <div className="max-w-md rounded-2xl border border-white/60 bg-white/80 p-6 shadow-sm backdrop-blur">
             <p className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">Mapa temporalmente desactivado</p>
             <h3 className="mt-3 text-xl font-bold text-slate-900">Falta configurar el token de Mapbox</h3>
-            <p className="mt-3 text-sm leading-6 text-slate-600">Carga el token público para mostrar expertos sobre el mapa. Mientras tanto, la vista queda como placeholder.</p>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              En la raíz del proyecto, define{' '}
+              <code className="rounded bg-slate-100 px-1">NEXT_PUBLIC_MAPBOX_TOKEN=pk.tu_token</code>{' '}
+              en <code className="rounded bg-slate-100 px-1">.env</code> y reconstruye el frontend:{' '}
+              <code className="rounded bg-slate-100 px-1">docker compose build frontend --no-cache</code>
+            </p>
           </div>
         </div>
       </div>
@@ -397,8 +470,11 @@ export default function MapboxMap({ topicFilter, searchResults, onTutorsFound }:
   }
 
   return (
-    <div className="relative h-full min-h-125 w-full">
-      <div ref={mapContainer} className="h-full w-full rounded-lg" />
+    <div
+      className="relative w-full"
+      style={{ height: MAP_HEIGHT, minHeight: MAP_MIN_HEIGHT }}
+    >
+      <div ref={mapContainer} className="mapbox-host h-full w-full rounded-lg" />
 
       {searchPhase !== 'idle' && (
         <div className="absolute bottom-0 left-0 right-0 z-20 transition-all duration-500 ease-out">
