@@ -8,7 +8,7 @@ Repositorio de referencia: [Nearyx_Working](https://github.com/Santi-a-ux/Nearyx
 
 | Capa | Tecnología |
 |------|-----------|
-| Frontend | Next.js 14 + TypeScript + Tailwind + shadcn/ui |
+| Frontend | Next.js 16 + TypeScript + Tailwind + shadcn/ui |
 | Backend | FastAPI + Python 3.12 |
 | Base de datos | PostgreSQL 16 + PostGIS 3.4 |
 | Cache | Redis 7 |
@@ -38,8 +38,17 @@ Repositorio de referencia: [Nearyx_Working](https://github.com/Santi-a-ux/Nearyx
 ```bash
 git clone https://github.com/Santi-a-ux/Nearyx_Working.git
 cd Nearyx_Working
-cp .env.example .env
-cp frontend/.env.example frontend/.env.local
+```
+
+```bash
+# Ejemplo mínimo:
+# .env
+#   MAPBOX_PUBLIC_TOKEN=pk.tu_token_aqui
+#   NEXT_PUBLIC_MAPBOX_TOKEN=pk.tu_token_aqui
+# frontend/.env.local
+#   NEXT_PUBLIC_API_URL=http://localhost:8000
+#   INTERNAL_API_URL=http://localhost:8000
+#   NEXT_PUBLIC_WS_URL=ws://localhost:8005
 ```
 
 Edita `.env` y `frontend/.env.local` con tus valores reales (sobre todo **Mapbox** y `JWT_SECRET`).
