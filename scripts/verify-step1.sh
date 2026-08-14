@@ -21,8 +21,8 @@ echo "1. Verificando archivo .env..."
 if [ -f ".env" ]; then
     echo -e "   ${GREEN}✅ .env encontrado${NC}"
 else
-    echo -e "   ${RED}❌ .env no encontrado. Copia .env.example a .env y configura las variables${NC}"
-    echo "   Comando: cp .env.example .env"
+    echo -e "   ${RED}❌ .env no encontrado. Crea .env en la raíz y configura las variables${NC}"
+    echo "   Revisa README.md o SETUP.md para el contenido mínimo"
     exit 1
 fi
 

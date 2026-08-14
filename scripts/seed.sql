@@ -1,5 +1,5 @@
--- Single seed file for the 5 real tutors.
--- Idempotent: can be executed more than once without duplicating records.
+-- Seed compacto de 10 personas: 5 usuarios normales y 5 expertos.
+-- Idempotente: puede ejecutarse más de una vez sin duplicar registros.
 
 CREATE TABLE IF NOT EXISTS "users".profiles (
   id UUID PRIMARY KEY,
@@ -29,56 +29,16 @@ CREATE TABLE IF NOT EXISTS "tutors".profiles (
 
 INSERT INTO "users".profiles (id, user_id, display_name, bio, avatar_url, location_name, created_at, updated_at)
 VALUES
-  (
-    'c1b7f33a-2b9c-4c9e-8f70-111111111111',
-    'c1b7f33a-2b9c-4c9e-8f70-111111111111',
-    'David Ramírez López',
-    'Tutor de programación con enfoque práctico en Python, Django y FastAPI.',
-    'https://randomuser.me/api/portraits/men/32.jpg',
-    'Medellín, Antioquia',
-    NOW(),
-    NOW()
-  ),
-  (
-    'c1b7f33a-2b9c-4c9e-8f70-222222222222',
-    'c1b7f33a-2b9c-4c9e-8f70-222222222222',
-    'Isabella García Martínez',
-    'Tutora de cocina colombiana, repostería y técnica culinaria.',
-    'https://randomuser.me/api/portraits/women/44.jpg',
-    'Medellín, Antioquia',
-    NOW(),
-    NOW()
-  ),
-  (
-    'c1b7f33a-2b9c-4c9e-8f70-333333333333',
-    'c1b7f33a-2b9c-4c9e-8f70-333333333333',
-    'Carlos Enrique Vega',
-    'Tutor de guitarra, teoría musical y composición.',
-    'https://randomuser.me/api/portraits/men/65.jpg',
-    'Medellín, Antioquia',
-    NOW(),
-    NOW()
-  ),
-  (
-    'c1b7f33a-2b9c-4c9e-8f70-444444444444',
-    'c1b7f33a-2b9c-4c9e-8f70-444444444444',
-    'Martina Rodríguez Acevedo',
-    'Tutora de bienestar con enfoque en yoga, meditación y pilates.',
-    'https://randomuser.me/api/portraits/women/68.jpg',
-    'Medellín, Antioquia',
-    NOW(),
-    NOW()
-  ),
-  (
-    '550e8400-e29b-41d4-a716-446655440005',
-    '550e8400-e29b-41d4-a716-446655440005',
-    'Sebastián Morales Londoño',
-    'Tutor de fotografía digital, edición de imágenes y composición.',
-    'https://randomuser.me/api/portraits/men/75.jpg',
-    'Medellín, Antioquia',
-    NOW(),
-    NOW()
-  )
+  ('11111111-1111-4111-8111-111111111111', '11111111-1111-4111-8111-111111111111', 'Camila Ríos', 'Estudiante de diseño y branding.', 'https://randomuser.me/api/portraits/women/21.jpg', 'Medellín, Antioquia', NOW(), NOW()),
+  ('22222222-2222-4222-8222-222222222222', '22222222-2222-4222-8222-222222222222', 'Andrés Gómez', 'Usuario interesado en tecnología y productividad.', 'https://randomuser.me/api/portraits/men/22.jpg', 'Medellín, Antioquia', NOW(), NOW()),
+  ('33333333-3333-4333-8333-333333333333', '33333333-3333-4333-8333-333333333333', 'Laura Martínez', 'Le gusta aprender idiomas y matemáticas.', 'https://randomuser.me/api/portraits/women/23.jpg', 'Envigado, Antioquia', NOW(), NOW()),
+  ('44444444-4444-4444-8444-444444444444', '44444444-4444-4444-8444-444444444444', 'Felipe Uribe', 'Padre de familia que busca apoyo para sus hijos.', 'https://randomuser.me/api/portraits/men/24.jpg', 'Bello, Antioquia', NOW(), NOW()),
+  ('55555555-5555-4555-8555-555555555555', '55555555-5555-4555-8555-555555555555', 'Sofía Herrera', 'Interesada en arte, fotografía y bienestar.', 'https://randomuser.me/api/portraits/women/25.jpg', 'Itagüí, Antioquia', NOW(), NOW()),
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Daniel Rojas', 'Ingeniero de software y tutor de programación.', 'https://randomuser.me/api/portraits/men/31.jpg', 'Medellín, Antioquia', NOW(), NOW()),
+  ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Mariana Torres', 'Tutora de inglés y comunicación escrita.', 'https://randomuser.me/api/portraits/women/32.jpg', 'Medellín, Antioquia', NOW(), NOW()),
+  ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'Julián Castaño', 'Músico y profesor de guitarra.', 'https://randomuser.me/api/portraits/men/33.jpg', 'Medellín, Antioquia', NOW(), NOW()),
+  ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'Valentina Pineda', 'Experta en cocina y repostería.', 'https://randomuser.me/api/portraits/women/34.jpg', 'Envigado, Antioquia', NOW(), NOW()),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'Santiago Mejía', 'Fotógrafo y editor de imagen.', 'https://randomuser.me/api/portraits/men/35.jpg', 'Sabaneta, Antioquia', NOW(), NOW())
 ON CONFLICT (user_id) DO UPDATE SET
   display_name = EXCLUDED.display_name,
   bio = EXCLUDED.bio,
@@ -92,71 +52,11 @@ INSERT INTO "tutors".profiles (
   coordinates, created_at, updated_at
 )
 VALUES
-  (
-    'c1b7f33a-2b9c-4c9e-8f70-111111111111',
-    'c1b7f33a-2b9c-4c9e-8f70-111111111111',
-    ARRAY['Python', 'Django', 'FastAPI', 'Bases de Datos'],
-    ARRAY['Programación', 'Profesional'],
-    TRUE,
-    60000,
-    8,
-    'verified',
-    ST_SetSRID(ST_MakePoint(-75.5161, 5.0688), 4326),
-    NOW(),
-    NOW()
-  ),
-  (
-    'c1b7f33a-2b9c-4c9e-8f70-222222222222',
-    'c1b7f33a-2b9c-4c9e-8f70-222222222222',
-    ARRAY['Cocina Colombiana', 'Repostería', 'Técnica Culinaria', 'Nutrición'],
-    ARRAY['Gastronomía', 'Profesional'],
-    TRUE,
-    55000,
-    12,
-    'verified',
-    ST_SetSRID(ST_MakePoint(-75.5200, 5.0700), 4326),
-    NOW(),
-    NOW()
-  ),
-  (
-    'c1b7f33a-2b9c-4c9e-8f70-333333333333',
-    'c1b7f33a-2b9c-4c9e-8f70-333333333333',
-    ARRAY['Guitarra', 'Teoría Musical', 'Composición', 'Música Popular'],
-    ARRAY['Arte', 'Ocio'],
-    TRUE,
-    45000,
-    15,
-    'verified',
-    ST_SetSRID(ST_MakePoint(-75.5180, 5.0720), 4326),
-    NOW(),
-    NOW()
-  ),
-  (
-    'c1b7f33a-2b9c-4c9e-8f70-444444444444',
-    'c1b7f33a-2b9c-4c9e-8f70-444444444444',
-    ARRAY['Yoga', 'Meditación', 'Bienestar Mental', 'Pilates'],
-    ARRAY['Salud', 'Bienestar'],
-    TRUE,
-    40000,
-    6,
-    'verified',
-    ST_SetSRID(ST_MakePoint(-75.5140, 5.0680), 4326),
-    NOW(),
-    NOW()
-  ),
-  (
-    '550e8400-e29b-41d4-a716-446655440005',
-    '550e8400-e29b-41d4-a716-446655440005',
-    ARRAY['Fotografía Digital', 'Edición de Imágenes', 'Composición', 'Iluminación'],
-    ARRAY['Arte', 'Profesional'],
-    TRUE,
-    50000,
-    7,
-    'verified',
-    ST_SetSRID(ST_MakePoint(-75.5220, 5.0650), 4326),
-    NOW(),
-    NOW()
-  )
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', ARRAY['Python', 'JavaScript', 'Bases de Datos'], ARRAY['Programación', 'Tecnología'], TRUE, 70000, 9, 'verified', ST_SetSRID(ST_MakePoint(-75.5670, 6.2440), 4326), NOW(), NOW()),
+  ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', ARRAY['Inglés', 'Redacción', 'Conversación'], ARRAY['Idiomas', 'Educación'], TRUE, 50000, 6, 'verified', ST_SetSRID(ST_MakePoint(-75.5636, 6.2518), 4326), NOW(), NOW()),
+  ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', ARRAY['Guitarra', 'Teoría Musical', 'Composición'], ARRAY['Música', 'Arte'], TRUE, 45000, 10, 'verified', ST_SetSRID(ST_MakePoint(-75.5630, 6.2508), 4326), NOW(), NOW()),
+  ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', ARRAY['Cocina Colombiana', 'Repostería', 'Panadería'], ARRAY['Gastronomía', 'Bienestar'], TRUE, 55000, 8, 'verified', ST_SetSRID(ST_MakePoint(-75.5642, 6.2522), 4326), NOW(), NOW()),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', ARRAY['Fotografía Digital', 'Edición de Imagen', 'Composición'], ARRAY['Arte', 'Tecnología'], TRUE, 60000, 7, 'verified', ST_SetSRID(ST_MakePoint(-75.5650, 6.2530), 4326), NOW(), NOW())
 ON CONFLICT (user_id) DO UPDATE SET
   specialties = EXCLUDED.specialties,
   categories = EXCLUDED.categories,
@@ -169,5 +69,5 @@ ON CONFLICT (user_id) DO UPDATE SET
 
 DO $$
 BEGIN
-  RAISE NOTICE '✅ 5 real tutors seeded successfully';
+  RAISE NOTICE '✅ Seed compacto aplicado: 5 usuarios normales y 5 expertos';
 END $$;
