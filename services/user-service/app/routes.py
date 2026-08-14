@@ -39,7 +39,6 @@ async def get_my_profile_root(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    """Get authenticated user's profile (alias for /profiles/me)"""
     user_id = uuid.UUID(current_user["user_id"])
     result = await db.execute(select(UserProfile).where(UserProfile.user_id == user_id))
     profile = result.scalars().first()
@@ -69,7 +68,6 @@ async def update_my_profile(
     result = await db.execute(select(UserProfile).where(UserProfile.user_id == user_id))
     profile = result.scalars().first()
     if not profile:
-        # Upsert behavior: if profile does not exist yet, create it with safe defaults.
         profile = UserProfile(
             user_id=user_id,
             display_name=profile_in.display_name or "Usuario",

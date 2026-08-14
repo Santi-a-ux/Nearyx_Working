@@ -12,7 +12,7 @@ class Booking(Base):
     tutor_id = Column(UUID(as_uuid=True), nullable=False)
     scheduled_start = Column(DateTime(timezone=True), nullable=False)
     scheduled_end = Column(DateTime(timezone=True), nullable=False)
-    status = Column(String(50), nullable=False, server_default="pending") # pending, confirmed, cancelled, completed
+    status = Column(String(50), nullable=False, server_default="pending")
     session_notes = Column(Text, nullable=True)
     
     created_at = Column(DateTime(timezone=True), server_default=text("now()"))

@@ -19,7 +19,6 @@ async def create_booking(
 ):
     student_id = uuid.UUID(current_user["user_id"])
     
-    # Prevenir que empiece despues de que termine
     if booking_in.scheduled_end <= booking_in.scheduled_start:
         raise HTTPException(status_code=400, detail="Invalid time range")
 
@@ -41,8 +40,6 @@ async def get_my_bookings(
     current_user: dict = Depends(get_current_user)
 ):
     user_id = uuid.UUID(current_user["user_id"])
-    role = current_user.get("role")
-    # Return bookings where the current user participates either as tutor or student
     stmt = select(Booking).where(or_(Booking.tutor_id == user_id, Booking.student_id == user_id))
         
     result = await db.execute(stmt)
@@ -63,7 +60,6 @@ async def update_booking_status(
 
     user_id = uuid.UUID(current_user["user_id"])
     
-    # Validacion: Solo el tutor o el estudiante pueden cambiar el estado
     if user_id not in (booking.student_id, booking.tutor_id):
         raise HTTPException(status_code=403, detail="Not authorized")
 

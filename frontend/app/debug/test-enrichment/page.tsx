@@ -10,7 +10,6 @@ export default function TestEnrichmentPage() {
   useEffect(() => {
     async function test() {
       try {
-        // Fetch tutors
         const tutorsRes = await fetch("/tutors/?limit=5");
         const tutorsData = await tutorsRes.json();
         const tutors = Array.isArray(tutorsData) ? tutorsData : tutorsData.tutors ?? [];
@@ -21,7 +20,6 @@ export default function TestEnrichmentPage() {
           tutorsKeys: tutors.length > 0 ? Object.keys(tutors[0]) : [],
         });
 
-        // Try to enrich
         const enrichedTutors = await Promise.all(
           tutors.map(async (t: any) => {
             try {

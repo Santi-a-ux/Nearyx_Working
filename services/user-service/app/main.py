@@ -19,7 +19,6 @@ app.include_router(router, prefix="/users")
 
 @app.on_event("startup")
 async def create_tables() -> None:
-    # Ensure user profile tables exist on fresh databases.
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
