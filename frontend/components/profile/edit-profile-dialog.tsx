@@ -42,6 +42,7 @@ export function EditProfileDialog({ initialData }: EditProfileDialogProps) {
 
       const res = await fetch("/api/media/upload", {
         method: "POST",
+        credentials: "include",
         body: fd,
       });
 

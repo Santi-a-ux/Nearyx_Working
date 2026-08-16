@@ -67,6 +67,16 @@ interface SessionUserProfile {
   role?: string;
 }
 
+interface FeedComment {
+  id: string;
+  post_id: string;
+  author_id: string;
+  author_name: string;
+  author_avatar?: string;
+  content: string;
+  created_at: string;
+}
+
 const starterPosts: FeedPost[] = SAMPLE_POSTS.map((post, index) => ({
   ...post,
   author_role: index % 2 === 0 ? "Estudiante" : "Experto",
@@ -316,6 +326,7 @@ export function DashboardContent({ mapboxAccessToken = "" }: { mapboxAccessToken
     try {
       const response = await fetch("/api/media/upload", {
         method: "POST",
+        credentials: "include",
         body: formData,
       });
 
@@ -477,7 +488,62 @@ export function DashboardContent({ mapboxAccessToken = "" }: { mapboxAccessToken
 function PostCard({ post, toneIndex }: { post: FeedPost; toneIndex: number }) {
   const [liked, setLiked] = useState(false);
   const [likes, setLikes] = useState(12 + toneIndex);
+  const [showComments, setShowComments] = useState(false);
+  const [comments, setComments] = useState<FeedComment[]>([]);
+  const [commentsLoaded, setCommentsLoaded] = useState(false);
+  const [commentText, setCommentText] = useState("");
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
   const isExpert = isExpertFeedAuthorRole(post.author_role) || post.author_role === "Tutor";
+
+  const loadComments = async () => {
+    try {
+      const response = await fetch(`/api/feed/posts/${post.id}/comments`, { credentials: "include" });
+      if (!response.ok) return;
+      const data = await response.json();
+      setComments(Array.isArray(data.comments) ? data.comments : []);
+      setCommentsLoaded(true);
+    } catch {
+      // Keep comments section usable even if loading fails.
+    }
+  };
+
+  const toggleComments = async () => {
+    const next = !showComments;
+    setShowComments(next);
+    if (next && !commentsLoaded) {
+      await loadComments();
+    }
+  };
+
+  const submitComment = async () => {
+    const content = commentText.trim();
+    if (!content || commentSubmitting) return;
+
+    setCommentSubmitting(true);
+    try {
+      const response = await fetch(`/api/feed/posts/${post.id}/comments`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || "No se pudo publicar el comentario");
+      }
+
+      setComments((previous) => [...previous, data as FeedComment]);
+      setCommentText("");
+      setCommentsLoaded(true);
+      if (!showComments) setShowComments(true);
+      toast.success("Comentario publicado");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo publicar el comentario");
+    } finally {
+      setCommentSubmitting(false);
+    }
+  };
 
   return (
     <article className={cn(cardElevatedClass, "p-6")}>
@@ -518,9 +584,11 @@ function PostCard({ post, toneIndex }: { post: FeedPost; toneIndex: number }) {
                 <Heart className={cn("h-4 w-4", liked && "fill-current text-primary")} />
                 <span className="text-caption">{likes}</span>
               </Button>
-              <Button type="button" variant="ghost" size="sm" className="gap-2">
+              <Button type="button" variant="ghost" size="sm" className="gap-2" onClick={() => void toggleComments()}>
                 <MessageSquare className="h-4 w-4" />
-                <span className="text-caption">Comentar</span>
+                <span className="text-caption">
+                  {commentsLoaded ? `Comentarios (${comments.length})` : "Comentar"}
+                </span>
               </Button>
               <Button type="button" variant="ghost" size="sm">
                 <Share2 className="h-4 w-4" />
@@ -533,6 +601,61 @@ function PostCard({ post, toneIndex }: { post: FeedPost; toneIndex: number }) {
                 </div>
               ) : null}
             </footer>
+
+            {showComments ? (
+              <div className="mt-4 space-y-3 border-t border-border pt-4">
+                <div className="flex gap-2">
+                  <Input
+                    value={commentText}
+                    onChange={(event) => setCommentText(event.target.value)}
+                    placeholder="Escribe un comentario..."
+                    maxLength={500}
+                    disabled={commentSubmitting}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault();
+                        void submitComment();
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="brand"
+                    size="sm"
+                    disabled={!commentText.trim() || commentSubmitting}
+                    onClick={() => void submitComment()}
+                  >
+                    {commentSubmitting ? "..." : "Enviar"}
+                  </Button>
+                </div>
+
+                {comments.length === 0 ? (
+                  <p className="text-caption text-muted-foreground">Sé el primero en comentar esta publicación.</p>
+                ) : (
+                  <ul className="space-y-3">
+                    {comments.map((comment) => (
+                      <li key={comment.id} className="flex gap-2">
+                        <UserAvatar name={comment.author_name} size="sm" avatarUrl={comment.author_avatar} />
+                        <div className="min-w-0 flex-1 rounded-xl bg-muted/40 px-3 py-2">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <span className="text-body font-medium">{comment.author_name}</span>
+                            <span className="text-caption text-muted-foreground">
+                              {new Intl.DateTimeFormat("es-CO", {
+                                day: "2-digit",
+                                month: "short",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }).format(new Date(comment.created_at))}
+                            </span>
+                          </div>
+                          <p className="text-body mt-1 whitespace-pre-wrap">{comment.content}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : null}
 
             {isExpert && isUuid(post.author_id) ? (
               <InlineTutorRating tutorUserId={post.author_id} />

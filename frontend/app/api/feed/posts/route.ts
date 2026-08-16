@@ -1,58 +1,18 @@
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
-import { mapSessionRoleToFeedAuthorRole, type FeedAuthorRole } from "@/lib/feed-author-role";
+import {
+  addComment,
+  findPost,
+  mapSessionRoleToFeedAuthorRole,
+  readComments,
+  readPosts,
+  writePosts,
+  type FeedComment,
+  type FeedPost,
+} from "@/lib/feed-store";
 
 const API_URL = process.env.INTERNAL_API_URL || "http://gateway:8000";
-
-type FeedPost = {
-  id: string;
-  author_id: string;
-  content: string;
-  image_url?: string;
-  created_at: string;
-  author_name?: string;
-  author_avatar?: string;
-  author_role?: FeedAuthorRole;
-};
-
-// In-memory store for feed posts (will be reset when server restarts)
-let feedPosts: FeedPost[] = [];
-
-// Populate with sample posts on initialization
-function initializeSamplePosts() {
-  if (feedPosts.length === 0) {
-    feedPosts = [
-      {
-        id: "sample-1",
-        author_id: "maria",
-        content: "Necesito reforzar Cálculo para mi examen de admisión. ¿Alguien disponible para sesiones en la tarde?",
-        created_at: new Date(Date.now() - 3600000).toISOString(),
-        author_name: "María José González",
-        author_avatar: undefined,
-        author_role: "Estudiante",
-      },
-      {
-        id: "sample-2",
-        author_id: "roberto",
-        content: "Ingeniero de software con 8 años de experiencia. Ofrezco clases de Python y JavaScript.",
-        created_at: new Date(Date.now() - 7200000).toISOString(),
-        author_name: "Roberto Martínez",
-        author_avatar: undefined,
-        author_role: "Experto",
-      },
-    ];
-  }
-}
-
-function readPosts(): FeedPost[] {
-  initializeSamplePosts();
-  return feedPosts;
-}
-
-function writePosts(posts: FeedPost[]) {
-  feedPosts = posts;
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -84,8 +44,12 @@ export async function POST(request: NextRequest) {
     const token = cookieStore.get("token")?.value;
     const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
 
-    let authData: any = { id: "anonymous", email: "user@nearyx.local" };
-    let userData: any = {};
+    let authData: { id?: string; user_id?: string; email?: string; role?: string; display_name?: string } = {
+      id: "anonymous",
+      email: "user@nearyx.local",
+    };
+    let userData: { display_name?: string; name?: string; avatar_url?: string; profile_picture?: string; role?: string } =
+      {};
 
     if (token) {
       try {
@@ -120,12 +84,11 @@ export async function POST(request: NextRequest) {
       content,
       image_url: imageUrl,
       created_at: new Date().toISOString(),
-      author_name: userData.display_name || userData.name || authData.display_name || authData.email?.split("@")[0] || "Usuario",
+      author_name:
+        userData.display_name || userData.name || authData.display_name || authData.email?.split("@")[0] || "Usuario",
       author_avatar: userData.avatar_url || userData.profile_picture || undefined,
       author_role:
-        mapSessionRoleToFeedAuthorRole(sessionRole) ||
-        mapSessionRoleToFeedAuthorRole(bodyRole) ||
-        undefined,
+        mapSessionRoleToFeedAuthorRole(sessionRole) || mapSessionRoleToFeedAuthorRole(bodyRole) || undefined,
     };
 
     const posts = readPosts();
@@ -138,3 +101,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Error al crear la publicación", details: String(error) }, { status: 500 });
   }
 }
+
+export type { FeedComment, FeedPost };
