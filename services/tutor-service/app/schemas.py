@@ -38,9 +38,21 @@ class TutorListOut(BaseModel):
 
 class TutorRatingIn(BaseModel):
     rating: int = Field(ge=1, le=5)
+    comment: Optional[str] = Field(default=None, max_length=500)
 
+class TutorRatingReviewOut(BaseModel):
+    rating: int
+    comment: Optional[str] = None
+    rater_user_id: UUID4
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
 
 class TutorRatingOut(BaseModel):
     my_rating: Optional[int] = None
+    my_comment: Optional[str] = None
     average_rating: Optional[float] = None
     ratings_count: int = 0
+    reviews: List[TutorRatingReviewOut] = []

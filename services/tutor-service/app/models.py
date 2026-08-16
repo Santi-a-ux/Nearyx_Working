@@ -34,5 +34,6 @@ class TutorRating(Base):
     tutor_user_id = Column(UUID(as_uuid=True), ForeignKey("tutors.profiles.user_id", ondelete="CASCADE"), nullable=False)
     rater_user_id = Column(UUID(as_uuid=True), nullable=False)
     rating = Column(Integer, nullable=False)
+    comment = Column(String(500), nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
