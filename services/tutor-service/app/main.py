@@ -47,10 +47,16 @@ async def ensure_schema_ready() -> None:
                 tutor_user_id UUID NOT NULL REFERENCES "tutors".profiles(user_id) ON DELETE CASCADE,
                 rater_user_id UUID NOT NULL,
                 rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+                comment VARCHAR(500),
                 created_at TIMESTAMPTZ DEFAULT NOW(),
                 updated_at TIMESTAMPTZ DEFAULT NOW(),
                 CONSTRAINT uq_tutor_rater UNIQUE (tutor_user_id, rater_user_id)
             )
+        '''))
+        
+        await conn.execute(text('''
+            ALTER TABLE "tutors".ratings
+            ADD COLUMN IF NOT EXISTS comment VARCHAR(500)
         '''))
 
 app.add_middleware(

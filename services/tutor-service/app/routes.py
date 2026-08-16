@@ -228,23 +228,46 @@ async def _build_rating_out(
         func.avg(TutorRating.rating).label("average_rating"),
         func.count(TutorRating.id).label("ratings_count"),
     ).where(TutorRating.tutor_user_id == tutor_user_id)
+
     stats_result = await db.execute(stats_stmt)
     stats_row = stats_result.one()
 
     my_rating = None
+    my_comment = None
+
     if rater_user_id is not None:
-        my_stmt = select(TutorRating.rating).where(
+        my_stmt = select(
+            TutorRating.rating,
+            TutorRating.comment
+        ).where(
             TutorRating.tutor_user_id == tutor_user_id,
             TutorRating.rater_user_id == rater_user_id,
         )
+
         my_result = await db.execute(my_stmt)
-        my_rating = my_result.scalar_one_or_none()
+        my_row = my_result.first()
+
+        if my_row:
+            my_rating = my_row.rating
+            my_comment = my_row.comment
+
+    reviews_stmt = (
+        select(TutorRating)
+        .where(TutorRating.tutor_user_id == tutor_user_id)
+        .order_by(TutorRating.created_at.desc())
+    )
+
+    reviews_result = await db.execute(reviews_stmt)
+    reviews = reviews_result.scalars().all()
 
     avg_value = stats_row.average_rating
+
     return TutorRatingOut(
         my_rating=my_rating,
+        my_comment=my_comment,
         average_rating=float(avg_value) if avg_value is not None else None,
         ratings_count=int(stats_row.ratings_count or 0),
+        reviews=reviews,
     )
 
 
@@ -288,12 +311,14 @@ async def put_tutor_rating(
 
     if existing:
         existing.rating = rating_in.rating
+        existing.comment = rating_in.comment
     else:
         db.add(
             TutorRating(
                 tutor_user_id=user_id,
                 rater_user_id=rater_user_id,
                 rating=rating_in.rating,
+                comment=rating_in.comment,
             )
         )
 
