@@ -38,9 +38,8 @@ export function EditProfileDialog({ initialData }: EditProfileDialogProps) {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      fd.append("type", "avatar");
 
-      const res = await fetch("/api/media/upload", {
+      const res = await fetch("/api/users/profiles/avatar", {
         method: "POST",
         credentials: "include",
         body: fd,
@@ -52,7 +51,7 @@ export function EditProfileDialog({ initialData }: EditProfileDialogProps) {
       }
 
       const data = await res.json();
-      return data.url || data.file_url || data.url;
+      return data.avatar_url || data.url || data.file_url || data.secure_url || null;
     } catch (err) {
       const e = err as Error;
       toast.error(e.message || "Error subiendo la imagen");
@@ -85,6 +84,7 @@ export function EditProfileDialog({ initialData }: EditProfileDialogProps) {
       toast.success("Perfil actualizado");
       setOpen(false);
       router.refresh();
+      window.location.reload();
     } catch (error: unknown) {
       const err = error as Error;
       toast.error(err.message || "Error al actualizar el perfil");

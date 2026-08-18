@@ -4,3 +4,4 @@ asyncpg==0.29.0
 python-jose[cryptography]==3.3.0
 pydantic-settings==2.2.1
 geoalchemy2==0.14.4
+psycopg2-binary==2.9.12

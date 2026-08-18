@@ -19,7 +19,7 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;
 -- Cada microservicio tiene su propio schema — nunca comparten tablas directamente.
 -- La comunicación entre servicios ocurre via API, no via JOINs cross-schema.
 
-CREATE SCHEMA IF NOT EXISTS auth;
+CREATE SCHEMA IF NOT EXISTS authe;
 CREATE SCHEMA IF NOT EXISTS users;
 CREATE SCHEMA IF NOT EXISTS tutors;
 CREATE SCHEMA IF NOT EXISTS geo;
@@ -29,7 +29,7 @@ CREATE SCHEMA IF NOT EXISTS feed;
 CREATE SCHEMA IF NOT EXISTS notifications;
 
 -- ─── GRANTS ────────────────────────────────────────────────────────────────────
-GRANT ALL PRIVILEGES ON SCHEMA auth TO postgres;
+GRANT ALL PRIVILEGES ON SCHEMA authe TO postgres;
 GRANT ALL PRIVILEGES ON SCHEMA users TO postgres;
 GRANT ALL PRIVILEGES ON SCHEMA tutors TO postgres;
 GRANT ALL PRIVILEGES ON SCHEMA geo TO postgres;
@@ -42,6 +42,6 @@ GRANT ALL PRIVILEGES ON SCHEMA notifications TO postgres;
 DO $$
 BEGIN
   RAISE NOTICE '✅ Base de datos TTP inicializada correctamente';
-  RAISE NOTICE '   Schemas creados: auth, users, tutors, geo, chat, media, notifications';
+  RAISE NOTICE '   Schemas creados: authe, users, tutors, geo, chat, media, notifications';
   RAISE NOTICE '   Extensiones: uuid-ossp, postgis, unaccent, pg_trgm';
 END $$;

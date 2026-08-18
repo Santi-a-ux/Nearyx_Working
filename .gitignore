@@ -3,7 +3,12 @@
 .env.local
 .env.production
 .env.staging
-
+*/.env/*
+**/.env/*
+*/.env/**
+**/.env/**
+*/.env
+**/.env
 # ─── PYTHON ─────────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
