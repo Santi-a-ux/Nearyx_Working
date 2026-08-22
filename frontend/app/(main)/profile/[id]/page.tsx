@@ -7,7 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MessageButton from "@/components/message-button";
 import TutorRating from "@/components/profile/tutor-rating";
+import { VerificationBadge } from "@/components/profile/verification-badge";
 import { appCardClass, appCardInnerClass } from "@/lib/surface-styles";
+import {
+  formatYearRange,
+  hasPublicVerificationData,
+  isVerified,
+  type VerificationPublic,
+} from "@/lib/verification";
 import { Clock, MapPin, MessageCircle, Star } from "lucide-react";
 
 interface TutorProfile {
@@ -20,6 +27,7 @@ interface TutorProfile {
   lat?: number;
   lng?: number;
   is_available?: boolean;
+  verification_status?: string;
 }
 
 interface UserProfile {
@@ -33,11 +41,13 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
   const { id } = await params;
   let tutor: TutorProfile | null = null;
   let userProfile: UserProfile | null = null;
+  let verification: VerificationPublic | null = null;
   let errorMsg = null;
 
   try {
     tutor = await fetchApi<TutorProfile>(`/tutors/${id}`);
     userProfile = await fetchApi<UserProfile>(`/users/profiles/${id}`).catch(() => null);
+    verification = await fetchApi<VerificationPublic>(`/tutors/verification/${id}`).catch(() => null);
   } catch (error: unknown) {
     const err = error as Error;
     errorMsg = err.message || "No se pudo cargar el perfil del experto";
@@ -63,6 +73,8 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
   const displayName = userProfile?.display_name || "Perfil disponible";
   const bio = tutor.headline || userProfile?.bio || "Especialista disponible";
   const skills = [...(tutor.specialties || []), ...(tutor.categories || [])];
+  const tutorIsVerified = isVerified(tutor.verification_status);
+  const showCredentials = tutorIsVerified && hasPublicVerificationData(verification);
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 lg:py-8">
       <div className={`overflow-hidden ${appCardClass}`}>
@@ -77,6 +89,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                   <Badge className={tutor.is_available ? "bg-[#CCFBF1] text-[#0F766E]" : "bg-muted text-muted-foreground"}>
                     {tutor.is_available ? "Disponible" : "No disponible"}
                   </Badge>
+                  {tutorIsVerified && <VerificationBadge />}
                 </div>
                 <h1 className="mt-2 text-3xl font-bold tracking-tight text-[#10314F]">{displayName}</h1>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">{userProfile?.location_name || "Sin ubicación pública"}</p>
@@ -123,8 +136,13 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
       </div>
 
       <Tabs defaultValue="about" className="mt-6">
-        <TabsList className="grid w-full max-w-xl grid-cols-3 rounded-2xl border border-border bg-white p-1 shadow-sm">
+        <TabsList
+          className={`grid w-full ${showCredentials ? "max-w-2xl grid-cols-4" : "max-w-xl grid-cols-3"} rounded-2xl border border-border bg-white p-1 shadow-sm`}
+        >
           <TabsTrigger value="about" className="rounded-xl data-[state=active]:bg-brand-dark data-[state=active]:text-white">Sobre mí</TabsTrigger>
+          {showCredentials && (
+            <TabsTrigger value="credentials" className="rounded-xl data-[state=active]:bg-brand-dark data-[state=active]:text-white">Formación</TabsTrigger>
+          )}
           <TabsTrigger value="skills" className="rounded-xl data-[state=active]:bg-brand-dark data-[state=active]:text-white">Habilidades</TabsTrigger>
           <TabsTrigger value="reviews" className="rounded-xl data-[state=active]:bg-brand-dark data-[state=active]:text-white">Reseñas</TabsTrigger>
         </TabsList>
@@ -135,6 +153,75 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
             <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-foreground/80">{userProfile?.bio || "Este experto aún no ha añadido una biografía."}</p>
           </div>
         </TabsContent>
+
+        {showCredentials && verification && (
+          <TabsContent value="credentials" className="mt-4">
+            <div className={`${appCardClass} space-y-6 p-6`}>
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-muted-foreground">
+                Información académica y profesional verificada
+              </p>
+
+              {verification.summary && (
+                <p className="whitespace-pre-wrap text-sm leading-7 text-foreground/80">{verification.summary}</p>
+              )}
+
+              {verification.education.length > 0 && (
+                <section className="space-y-3">
+                  <h3 className="text-sm font-bold text-[#10314F]">Formación académica</h3>
+                  {verification.education.map((item, index) => (
+                    <div key={`edu-${index}`} className={appCardInnerClass}>
+                      <p className="text-sm font-bold text-[#10314F]">{item.degree}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">{item.institution}</p>
+                      {item.field && <p className="mt-1 text-sm text-foreground/70">{item.field}</p>}
+                      {formatYearRange(item.start_year, item.end_year) && (
+                        <p className="mt-2 text-caption text-muted-foreground">
+                          {formatYearRange(item.start_year, item.end_year)}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </section>
+              )}
+
+              {verification.certifications.length > 0 && (
+                <section className="space-y-3">
+                  <h3 className="text-sm font-bold text-[#10314F]">Certificaciones y cursos</h3>
+                  {verification.certifications.map((item, index) => (
+                    <div key={`cert-${index}`} className={appCardInnerClass}>
+                      <p className="text-sm font-bold text-[#10314F]">{item.name}</p>
+                      {item.issuer && <p className="mt-1 text-sm text-muted-foreground">{item.issuer}</p>}
+                      {item.year && <p className="mt-2 text-caption text-muted-foreground">{item.year}</p>}
+                    </div>
+                  ))}
+                </section>
+              )}
+
+              {verification.experience.length > 0 && (
+                <section className="space-y-3">
+                  <h3 className="text-sm font-bold text-[#10314F]">Experiencia</h3>
+                  {verification.experience.map((item, index) => (
+                    <div key={`exp-${index}`} className={appCardInnerClass}>
+                      <p className="text-sm font-bold text-[#10314F]">{item.role}</p>
+                      {item.organization && (
+                        <p className="mt-1 text-sm text-muted-foreground">{item.organization}</p>
+                      )}
+                      {formatYearRange(item.start_year, item.end_year) && (
+                        <p className="mt-2 text-caption text-muted-foreground">
+                          {formatYearRange(item.start_year, item.end_year)}
+                        </p>
+                      )}
+                      {item.description && (
+                        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-foreground/80">
+                          {item.description}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </section>
+              )}
+            </div>
+          </TabsContent>
+        )}
 
         <TabsContent value="skills" className="mt-4">
           <div className={`${appCardClass} p-6`}>

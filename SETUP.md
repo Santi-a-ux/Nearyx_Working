@@ -61,6 +61,32 @@ Si quieres todo con Docker:
 docker compose up -d --build
 ```
 
+## 4. Crear la cuenta de administrador (verificación de tutores)
+
+El panel `/admin/verifications` —donde se aprueban o rechazan las solicitudes de
+verificación de tutores— solo es accesible para usuarios con rol `admin`. El
+formulario de registro únicamente ofrece "estudiante" y "experto", así que la
+cuenta de administrador se crea llamando directamente a la API:
+
+```bash
+curl -X POST http://localhost:8000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@nearyx.com","password":"Admin123!","role":"admin"}'
+```
+
+También puedes promover una cuenta existente:
+
+```bash
+docker compose exec postgres psql -U postgres -d ttp \
+  -c "UPDATE authe.users SET role='admin' WHERE email='tu@correo.com';"
+```
+
+> **Importante:** el rol viaja dentro del JWT. Si promueves una cuenta con `UPDATE`,
+> debes cerrar sesión y volver a entrar para que el token nuevo incluya
+> `role=admin`; de lo contrario el panel seguirá redirigiendo a `/dashboard`.
+
+Con la sesión de admin iniciada aparece "Verificaciones" en la barra lateral.
+
 ## Dónde entra cada cosa
 
 - `frontend/.env.local` solo afecta `npm run dev` dentro de `frontend/`.
@@ -71,3 +97,4 @@ docker compose up -d --build
 
 - Frontend: http://localhost:3000
 - Gateway: http://localhost:8000
+

@@ -6,8 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EditProfileDialog } from "@/components/profile/edit-profile-dialog";
 import { ProfileExpertActions } from "@/components/profile/profile-expert-actions";
+import { VerificationStatusActions } from "@/components/profile/verification-status-actions";
 import TutorPaymentSettings from "@/components/profile/tutor-payment-settings";
 import { appCardClass, appCardInnerClass, appCardSoftClass } from "@/lib/surface-styles";
+import { normalizeVerificationStatus, type VerificationRequest } from "@/lib/verification";
 
 interface UserProfile {
   user_id: string;
@@ -31,12 +33,16 @@ interface TutorProfile {
   years_experience?: number;
   is_available?: boolean;
   preferred_payment_method?: string;
+  verification_status?: string;
 }
 
 export default async function MyProfilePage() {
   const userProfile = await fetchApi<UserProfile>("/users/me").catch(() => null);
   const authUser = await fetchApi<AuthUser>("/auth/me").catch(() => null);
   const tutorProfile = await fetchApi<TutorProfile>("/tutors/profiles/me").catch(() => null);
+  const verificationRequest = tutorProfile
+    ? await fetchApi<VerificationRequest>("/tutors/verification/me").catch(() => null)
+    : null;
 
   if (!userProfile && !authUser) {
     return (
@@ -60,6 +66,11 @@ export default async function MyProfilePage() {
   const resolvedLocation = userProfile?.location_name || "Sin ubicación";
   const resolvedBio = userProfile?.bio || "Aún no has agregado una biografía.";
   const skills = [...(tutorProfile?.specialties || []), ...(tutorProfile?.categories || [])];
+  const verificationStatus = normalizeVerificationStatus(tutorProfile?.verification_status);
+  const rejectionNotes =
+    verificationStatus === "rejected" && verificationRequest?.status === "rejected"
+      ? verificationRequest.review_notes
+      : null;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 lg:py-8">
@@ -70,7 +81,15 @@ export default async function MyProfilePage() {
               <UserAvatar name={resolvedDisplayName} size="profile" avatarUrl={userProfile?.avatar_url} />
 
               <div className="min-w-0 max-w-2xl">
-                <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#10314F]/55">Mi perfil</p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#10314F]/55">Mi perfil</p>
+                  {tutorProfile && (
+                    <VerificationStatusActions
+                      status={tutorProfile.verification_status}
+                      request={verificationRequest}
+                    />
+                  )}
+                </div>
                 <h1 className="mt-2 text-3xl font-bold tracking-tight text-[#10314F]">{resolvedDisplayName}</h1>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">{resolvedLocation}</p>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-foreground/80">{resolvedBio}</p>
@@ -109,6 +128,19 @@ export default async function MyProfilePage() {
           </div>
         </div>
       </div>
+
+      {rejectionNotes && (
+        <div className={`mt-6 ${appCardClass} border-semantic-error/30 p-6`}>
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-semantic-error">
+            Verificación rechazada
+          </p>
+          <h2 className="mt-2 text-xl font-bold text-[#10314F]">Revisa lo que falta y vuelve a enviar</h2>
+          <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-foreground/80">{rejectionNotes}</p>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Usa el botón &laquo;Corregir y reenviar&raquo; junto a tu nombre para actualizar la solicitud.
+          </p>
+        </div>
+      )}
 
       {tutorProfile ? (
         <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
