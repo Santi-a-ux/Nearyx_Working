@@ -261,6 +261,182 @@
 }
 
 /* =========================
+   ACCESSIBILITY — HIGH CONTRAST MODE
+========================== */
+
+.high-contrast {
+  --background: #000000;
+  --foreground: #ffffff;
+
+  --card: #000000;
+  --card-foreground: #ffffff;
+
+  --popover: #000000;
+  --popover-foreground: #ffffff;
+
+  --primary: #ffd400;
+  --primary-foreground: #000000;
+
+  --secondary: #000000;
+  --secondary-foreground: #ffd400;
+
+  --muted: #111111;
+  --muted-foreground: #d4d4d4;
+
+  --accent: #ffd400;
+  --accent-foreground: #000000;
+
+  --destructive: #ff5252;
+
+  --border: #ffd400;
+  --input: #000000;
+  --ring: #ffd400;
+
+  --color-text: #ffffff;
+  --color-text-muted: #d4d4d4;
+  --color-bg: #000000;
+  --color-border: #ffd400;
+  --color-accent: #ffd400;
+}
+
+.high-contrast,
+.high-contrast body {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+/* =========================
+   Regla general para el alto contraste
+========================== */
+
+.high-contrast *:not(:where(.mapbox-host, .mapbox-host *)) {
+  background-color: transparent !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  color: #ffffff !important;
+  border-color: #ffd400 !important;
+  outline-color: #ffd400 !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+}
+
+.high-contrast a,
+.high-contrast button {
+  text-underline-offset: 3px;
+}
+
+/* =========================
+   Arreglo para los paneles
+========================== */
+
+.high-contrast header,
+.high-contrast [data-slot="sidebar"],
+.high-contrast [data-slot="sidebar-inner"],
+.high-contrast [data-slot="dialog-content"],
+.high-contrast [data-slot="sheet-content"],
+.high-contrast [data-slot="tooltip-content"],
+.high-contrast [role="dialog"],
+.high-contrast [role="menu"],
+.high-contrast [role="listbox"],
+.high-contrast [data-radix-popper-content-wrapper] {
+  background-color: #000000 !important;
+  background-image: none !important;
+}
+
+/* Notificaciones */
+.high-contrast [data-sonner-toast],
+.high-contrast .cn-toast {
+  background-color: var(--popover) !important;
+  color: var(--popover-foreground) !important;
+  border-color: var(--border) !important;
+}
+
+/* =========================
+   Tarjetas
+========================== */
+
+.high-contrast [class*="backdrop-blur"] {
+  background-color: #000000 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Arregla el fondo difuminado */
+.high-contrast [data-slot="dialog-overlay"],
+.high-contrast [data-slot="sheet-overlay"] {
+  background-color: rgba(0, 0, 0, 0.7) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+}
+
+/* =========================
+    Reinstanciar clases para evitar problemas 
+========================== */
+
+.high-contrast .bg-background { background-color: var(--background) !important; }
+.high-contrast .text-foreground,
+.high-contrast .text-foreground * { color: var(--foreground) !important; }
+.high-contrast .bg-foreground { background-color: var(--foreground) !important; }
+.high-contrast .text-background,
+.high-contrast .text-background * { color: var(--background) !important; }
+
+.high-contrast .bg-card { background-color: var(--card) !important; }
+.high-contrast .text-card-foreground,
+.high-contrast .text-card-foreground * { color: var(--card-foreground) !important; }
+
+.high-contrast .bg-popover { background-color: var(--popover) !important; }
+.high-contrast .text-popover-foreground,
+.high-contrast .text-popover-foreground * { color: var(--popover-foreground) !important; }
+
+.high-contrast .bg-primary { background-color: var(--primary) !important; }
+.high-contrast .text-primary,
+.high-contrast .text-primary * { color: var(--primary) !important; }
+.high-contrast .text-primary-foreground,
+.high-contrast .text-primary-foreground * { color: var(--primary-foreground) !important; }
+.high-contrast .border-primary { border-color: var(--primary) !important; }
+
+.high-contrast .bg-accent { background-color: var(--accent) !important; }
+.high-contrast .text-accent-foreground,
+.high-contrast .text-accent-foreground * { color: var(--accent-foreground) !important; }
+
+.high-contrast .text-secondary-foreground,
+.high-contrast .text-secondary-foreground * { color: var(--secondary-foreground) !important; }
+
+.high-contrast .bg-destructive { background-color: var(--destructive) !important; }
+.high-contrast .text-destructive,
+.high-contrast .text-destructive * { color: var(--destructive) !important; }
+
+/* =========================
+   Bordes on hover
+========================== */
+
+.high-contrast .sidebar-menu-item {
+  color: #ffffff !important;
+  border-bottom: 1px solid rgba(255, 212, 0, 0.35) !important;
+}
+
+.high-contrast .sidebar-menu-item:hover,
+.high-contrast .sidebar-menu-item.active,
+.high-contrast .nav-item.active,
+.high-contrast .chip.active,
+.high-contrast .btn-primary {
+  background-color: #ffd400 !important;
+  color: #000000 !important;
+}
+
+/* Fondos de los avatar */
+.high-contrast [data-slot="avatar-fallback"] {
+  background-color: #000000 !important;
+  color: #ffd400 !important;
+}
+
+.high-contrast img,
+.high-contrast svg {
+  filter: none !important;
+}
+
+/* =========================
    BASE
 ========================== */
 
