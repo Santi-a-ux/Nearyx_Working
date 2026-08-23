@@ -4,6 +4,8 @@ import "./globals.css";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ACCESSIBILITY_INIT_SCRIPT, AccessibilityProvider } from "@/lib/accessibility/accessibility-context";
+import { AccessibilityWidget } from "@/components/accessibility/accessibility-widget";
 
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -37,13 +39,19 @@ export default function RootLayout({
       className={`${fraunces.variable} ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: ACCESSIBILITY_INIT_SCRIPT }} />
+      </head>
       <body className="min-h-full flex flex-col font-sans bg-background text-foreground">
-        <QueryProvider>
-          <TooltipProvider>
-            {children}
-            <Toaster />
-          </TooltipProvider>
-        </QueryProvider>
+        <AccessibilityProvider>
+          <QueryProvider>
+            <TooltipProvider>
+              {children}
+              <Toaster />
+            </TooltipProvider>
+          </QueryProvider>
+          <AccessibilityWidget />
+        </AccessibilityProvider>
       </body>
     </html>
   );
