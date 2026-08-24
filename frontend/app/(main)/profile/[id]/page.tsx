@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MessageButton from "@/components/message-button";
 import TutorRating from "@/components/profile/tutor-rating";
+import { ProfileNetwork, type NetworkRecommendations } from "@/components/profile/profile-network";
 import { VerificationBadge } from "@/components/profile/verification-badge";
 import { appCardClass, appCardInnerClass } from "@/lib/surface-styles";
 import {
@@ -42,18 +43,22 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
   let tutor: TutorProfile | null = null;
   let userProfile: UserProfile | null = null;
   let verification: VerificationPublic | null = null;
+  let network: NetworkRecommendations | null = null;
   let errorMsg = null;
 
   try {
-    tutor = await fetchApi<TutorProfile>(`/tutors/${id}`);
     userProfile = await fetchApi<UserProfile>(`/users/profiles/${id}`).catch(() => null);
-    verification = await fetchApi<VerificationPublic>(`/tutors/verification/${id}`).catch(() => null);
+    tutor = await fetchApi<TutorProfile>(`/tutors/${id}`).catch(() => null);
+    if (tutor) {
+      verification = await fetchApi<VerificationPublic>(`/tutors/verification/${id}`).catch(() => null);
+    }
+    network = await fetchApi<NetworkRecommendations>(`/tutors/recommendations/${id}`).catch(() => null);
   } catch (error: unknown) {
     const err = error as Error;
     errorMsg = err.message || "No se pudo cargar el perfil del experto";
   }
 
-  if (errorMsg || !tutor) {
+  if (errorMsg || (!tutor && !userProfile)) {
     return (
       <div className="mx-auto flex max-w-3xl items-center justify-center px-4 py-10">
         <div className="w-full rounded-3xl border border-border bg-white p-8 text-center shadow-sm">
@@ -66,6 +71,27 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
             </Link>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (!tutor) {
+    const displayName = userProfile?.display_name || "Perfil disponible";
+    return (
+      <div className="mx-auto max-w-4xl px-4 py-6 lg:py-8">
+        <div className={`p-6 ${appCardClass}`}>
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+            <UserAvatar name={displayName} size="profileLg" avatarUrl={userProfile?.avatar_url} />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#10314F]/55">Perfil público</p>
+              <h1 className="mt-2 text-3xl font-bold tracking-tight text-[#10314F]">{displayName}</h1>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">{userProfile?.location_name || "Sin ubicación pública"}</p>
+              <p className="mt-3 text-sm leading-6 text-foreground/80">{userProfile?.bio || "Este usuario aún no ha añadido una biografía."}</p>
+            </div>
+            <MessageButton userId={id} />
+          </div>
+        </div>
+        <ProfileNetwork network={network} />
       </div>
     );
   }
@@ -252,6 +278,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
           </div>
         </TabsContent>
       </Tabs>
+      <ProfileNetwork network={network} />
     </div>
   );
 }

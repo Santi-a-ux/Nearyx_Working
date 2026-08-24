@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func
+from sqlalchemy import func, text
 from typing import List, Optional
 from app.database import get_db
 from app.models import TutorProfile, TutorRating, VerificationRequest, VerificationDocument
@@ -17,6 +17,7 @@ from app.schemas import (
     VerificationPublicOut,
     VerificationReviewIn,
     VerificationListOut,
+    NetworkRecommendationsOut,
     VERIFICATION_REVIEW_STATUSES,
 )
 from app.dependencies import require_tutor_role, get_current_user, require_admin
@@ -24,6 +25,110 @@ from datetime import datetime, timezone
 import uuid
 
 router = APIRouter()
+
+
+def _topic_set(*values):
+    return {str(value).strip().lower() for value in values if value and str(value).strip()}
+
+
+def _network_item(row, target_topics, reason):
+    specialties = row.get("specialties") or []
+    categories = row.get("categories") or []
+    candidate_topics = _topic_set(*(specialties + categories), row.get("bio"))
+    common_topics = sorted(target_topics & candidate_topics)
+    score = min(100.0, float(row.get("connection_count") or 1) * 15 + len(common_topics) * 20)
+    return {
+        "user_id": row["user_id"],
+        "display_name": row.get("display_name"),
+        "bio": row.get("bio"),
+        "avatar_url": row.get("avatar_url"),
+        "role": row.get("role"),
+        "specialties": specialties,
+        "categories": categories,
+        "common_topics": common_topics,
+        "score": score,
+        "connection_count": int(row.get("connection_count") or 1),
+        "reason": reason,
+    }
+
+
+@router.get('/recommendations/{user_id}', response_model=NetworkRecommendationsOut)
+async def get_network_recommendations(
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Build public network recommendations from conversations and completed/active bookings."""
+    target_result = await db.execute(text('''
+        SELECT up.bio, tp.specialties, tp.categories
+        FROM (SELECT CAST(:user_id AS uuid) AS user_id) target
+        LEFT JOIN users.profiles up ON up.user_id = target.user_id
+        LEFT JOIN tutors.profiles tp ON tp.user_id = target.user_id
+    '''), {"user_id": str(user_id)})
+    target = target_result.mappings().first()
+    target_topics = _topic_set(
+        *(target.get("specialties") or []),
+        *(target.get("categories") or []),
+        target.get("bio") if target else None,
+    )
+
+    people_result = await db.execute(text('''
+        WITH direct AS (
+                        SELECT DISTINCT participant.user_id
+            FROM chat.conversations c
+                        CROSS JOIN LATERAL unnest(c.participant_ids) AS participant(user_id)
+            WHERE CAST(:user_id AS uuid) = ANY(c.participant_ids)
+                            AND participant.user_id <> CAST(:user_id AS uuid)
+        ), candidates AS (
+            SELECT d.user_id, 1 AS depth FROM direct d
+            UNION ALL
+                        SELECT DISTINCT participant.user_id, 2 AS depth
+            FROM chat.conversations c
+            JOIN direct d ON d.user_id = ANY(c.participant_ids)
+                        CROSS JOIN LATERAL unnest(c.participant_ids) AS participant(user_id)
+                        WHERE participant.user_id <> CAST(:user_id AS uuid)
+        )
+                SELECT c.user_id, MIN(c.depth) AS depth, COUNT(*) AS connection_count,
+               au.role, up.display_name, up.bio, up.avatar_url,
+               tp.specialties, tp.categories
+        FROM candidates c
+        JOIN authe.users au ON au.id = c.user_id AND au.is_active = TRUE
+        LEFT JOIN users.profiles up ON up.user_id = c.user_id
+        LEFT JOIN tutors.profiles tp ON tp.user_id = c.user_id
+        WHERE c.user_id <> CAST(:user_id AS uuid)
+        GROUP BY c.user_id, au.role, up.display_name, up.bio,
+                 up.avatar_url, tp.specialties, tp.categories
+        ORDER BY connection_count DESC, MIN(c.depth) ASC
+        LIMIT 12
+    '''), {"user_id": str(user_id)})
+
+    tutors_result = await db.execute(text('''
+        WITH direct AS (
+                        SELECT DISTINCT participant.user_id
+            FROM chat.conversations c
+                        CROSS JOIN LATERAL unnest(c.participant_ids) AS participant(user_id)
+            WHERE CAST(:user_id AS uuid) = ANY(c.participant_ids)
+                            AND participant.user_id <> CAST(:user_id AS uuid)
+        )
+        SELECT b.tutor_id AS user_id, COUNT(*) AS connection_count,
+               au.role, up.display_name, up.bio, up.avatar_url,
+               tp.specialties, tp.categories
+        FROM bookings.bookings b
+        JOIN direct d ON d.user_id = b.student_id
+        JOIN authe.users au ON au.id = b.tutor_id AND au.is_active = TRUE
+        LEFT JOIN users.profiles up ON up.user_id = b.tutor_id
+        LEFT JOIN tutors.profiles tp ON tp.user_id = b.tutor_id
+                WHERE b.status NOT IN ('cancelled', 'rejected')
+                    AND b.tutor_id <> CAST(:user_id AS uuid)
+        GROUP BY b.tutor_id, au.role, up.display_name, up.bio, up.avatar_url,
+                 tp.specialties, tp.categories
+        ORDER BY connection_count DESC
+        LIMIT 12
+    '''), {"user_id": str(user_id)})
+
+    people = [_network_item(row, target_topics, "Contacto de tu red") for row in people_result.mappings()]
+    tutors = [_network_item(row, target_topics, "Tutor contratado por alguien de tu red") for row in tutors_result.mappings()]
+    return {"user_id": user_id, "people": people, "tutors": tutors}
 
 @router.post("/profiles", response_model=TutorProfileOut, status_code=status.HTTP_201_CREATED)
 async def create_profile(

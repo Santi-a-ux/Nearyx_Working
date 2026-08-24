@@ -8,6 +8,7 @@ import { EditProfileDialog } from "@/components/profile/edit-profile-dialog";
 import { ProfileExpertActions } from "@/components/profile/profile-expert-actions";
 import { VerificationStatusActions } from "@/components/profile/verification-status-actions";
 import TutorPaymentSettings from "@/components/profile/tutor-payment-settings";
+import { ProfileNetwork, type NetworkRecommendations } from "@/components/profile/profile-network";
 import { appCardClass, appCardInnerClass, appCardSoftClass } from "@/lib/surface-styles";
 import { normalizeVerificationStatus, type VerificationRequest } from "@/lib/verification";
 
@@ -40,6 +41,9 @@ export default async function MyProfilePage() {
   const userProfile = await fetchApi<UserProfile>("/users/me").catch(() => null);
   const authUser = await fetchApi<AuthUser>("/auth/me").catch(() => null);
   const tutorProfile = await fetchApi<TutorProfile>("/tutors/profiles/me").catch(() => null);
+  const network = userProfile?.user_id
+    ? await fetchApi<NetworkRecommendations>(`/tutors/recommendations/${userProfile.user_id}`).catch(() => null)
+    : null;
   const verificationRequest = tutorProfile
     ? await fetchApi<VerificationRequest>("/tutors/verification/me").catch(() => null)
     : null;
@@ -141,6 +145,8 @@ export default async function MyProfilePage() {
           </p>
         </div>
       )}
+
+      <ProfileNetwork network={network} />
 
       {tutorProfile ? (
         <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
