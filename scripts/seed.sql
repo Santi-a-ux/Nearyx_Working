@@ -1,5 +1,6 @@
 -- Seed compacto de 10 personas: 5 usuarios normales y 5 expertos.
 -- Idempotente: puede ejecutarse más de una vez sin duplicar registros.
+--
 
 CREATE TABLE IF NOT EXISTS "users".profiles (
   id UUID PRIMARY KEY,
@@ -20,7 +21,7 @@ CREATE TABLE IF NOT EXISTS "tutors".profiles (
   is_available BOOLEAN DEFAULT TRUE,
   hourly_rate NUMERIC(10, 2),
   years_experience INTEGER,
-  verification_status VARCHAR(20) DEFAULT 'pending',
+  verification_status VARCHAR(20) DEFAULT 'unverified',
   coordinates geometry(POINT, 4326),
   preferred_payment_method VARCHAR(50),
   created_at TIMESTAMPTZ DEFAULT NOW(),

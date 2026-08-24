@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, Home, Map, MessageCircle, UserCircle } from "lucide-react";
+import { CalendarDays, Home, Map, MessageCircle, ShieldCheck, UserCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
@@ -13,14 +13,22 @@ const items = [
   { title: "Perfil", url: "/profile/me", icon: UserCircle },
 ];
 
+const adminItems = [
+  { title: "Verificaciones", url: "/admin/verifications", icon: ShieldCheck },
+];
+
 export function AppSidebar({
-}: {}) {
+  role,
+}: {
+  role?: string;
+}) {
   const pathname = usePathname();
+  const navItems = role === "admin" ? [...items, ...adminItems] : items;
 
   return (
     <aside className="fixed left-0 top-14 z-40 flex h-[calc(100vh-3.5rem)] w-[220px] flex-col border-r border-border bg-background px-3 py-4">
       <nav className="space-y-1">
-        {items.map((item) => {
+        {navItems.map((item) => {
           const isActive = pathname === item.url || pathname?.startsWith(`${item.url}/`);
 
           return (

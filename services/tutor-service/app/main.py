@@ -59,6 +59,57 @@ async def ensure_schema_ready() -> None:
             ADD COLUMN IF NOT EXISTS comment VARCHAR(500)
         '''))
 
+        await conn.execute(text('''
+            CREATE TABLE IF NOT EXISTS "tutors".verification_requests (
+                id UUID PRIMARY KEY,
+                user_id UUID NOT NULL,
+                status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                summary TEXT,
+                education JSONB,
+                certifications JSONB,
+                experience JSONB,
+                skills TEXT[],
+                review_notes TEXT,
+                reviewed_by UUID,
+                reviewed_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                updated_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        '''))
+
+        await conn.execute(text('''
+            CREATE INDEX IF NOT EXISTS ix_verification_requests_user_id
+            ON "tutors".verification_requests (user_id)
+        '''))
+
+        await conn.execute(text('''
+            CREATE TABLE IF NOT EXISTS "tutors".verification_documents (
+                id UUID PRIMARY KEY,
+                request_id UUID NOT NULL REFERENCES "tutors".verification_requests(id) ON DELETE CASCADE,
+                file_url VARCHAR(500) NOT NULL,
+                file_name VARCHAR(255),
+                doc_type VARCHAR(50),
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            )
+        '''))
+
+        # El default historico era 'pending', lo que hacia que cualquier tutor recien
+        # creado apareciera como "en revision" sin haber enviado ninguna solicitud.
+        await conn.execute(text('''
+            ALTER TABLE "tutors".profiles
+            ALTER COLUMN verification_status SET DEFAULT 'unverified'
+        '''))
+
+        await conn.execute(text('''
+            UPDATE "tutors".profiles p
+            SET verification_status = 'unverified'
+            WHERE p.verification_status = 'pending'
+              AND NOT EXISTS (
+                  SELECT 1 FROM "tutors".verification_requests r
+                  WHERE r.user_id = p.user_id
+              )
+        '''))
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

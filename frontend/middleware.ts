@@ -11,7 +11,8 @@ export function middleware(request: NextRequest) {
                            pathname.startsWith('/bookings') || 
                            pathname.startsWith('/messages') ||
                            pathname.startsWith('/profile') ||
-                           pathname.startsWith('/tutor')
+                           pathname.startsWith('/tutor') ||
+                           pathname.startsWith('/admin')
 
   // Rutas de autenticación (no deberían verse si ya estás logueado)
   const isAuthRoute = pathname.startsWith('/login') || pathname.startsWith('/register')
@@ -35,6 +36,7 @@ export const config = {
     '/messages/:path*',
     '/profile/:path*',
     '/tutor/:path*',
+    '/admin/:path*',
     '/login',
     '/register'
   ]
