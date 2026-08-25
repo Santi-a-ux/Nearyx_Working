@@ -5,7 +5,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@ttp-postgres:5432/ttp"
     JWT_SECRET: str = "supersecret_jwt_key_that_should_be_changed_in_prod"
     JWT_ALGORITHM: str = "HS256"
-    SUPABASE_URL: str = "https://bwwoqvaboapbpteqtmjp.supabase.co"
+    SUPABASE_URL: str = "https://jbgctnllykajfcjqxnly.supabase.co"
     SUPABASE_KEY: str = ""
     SUPABASE_BUCKET: str = "tempoimages"
 

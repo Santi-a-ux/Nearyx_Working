@@ -5,3 +5,5 @@ python-jose[cryptography]==3.3.0
 pydantic-settings==2.2.1
 geoalchemy2==0.14.4
 psycopg2-binary==2.9.12
+pgvector==0.3.6
+sentence-transformers==2.7.0

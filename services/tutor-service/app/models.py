@@ -1,10 +1,25 @@
 import uuid
-from sqlalchemy import Column, String, Integer, Numeric, Boolean, DateTime, Text, MetaData, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, String, Integer, Numeric, Boolean, DateTime, Text, MetaData, ForeignKey, UniqueConstraint, cast
 from sqlalchemy.dialects.postgresql import UUID, ARRAY, JSONB
 from geoalchemy2 import Geometry
+from pgvector.sqlalchemy import Vector
 from datetime import datetime, timezone
 from app.database import Base
 
+# Dimensión del modelo de embeddings usado (intfloat/multilingual-e5-small = 384)
+EMBEDDING_DIM = 384
+
+
+class TextCastVector(Vector):
+    """
+    Igual que pgvector.sqlalchemy.Vector, pero fuerza que el parámetro se
+    envíe como TEXTO (para que asyncpg no necesite su codec binario de
+    `vector`, que resultó poco confiable con el pooler de Supabase) y le
+    agrega un CAST explícito a `vector` en el SQL, porque Postgres no hace
+    ese cast de forma implícita/automática.
+    """
+    def bind_expression(self, bindvalue):
+        return cast(cast(bindvalue, String), self)
 Base.metadata = MetaData(schema="tutors")
 
 
@@ -26,6 +41,7 @@ class TutorProfile(Base):
     verification_status = Column(String(20), default='unverified')
     coordinates = Column(Geometry('POINT', srid=4326), nullable=True)
     preferred_payment_method = Column(String(50), nullable=True)
+    embedding = Column(TextCastVector(EMBEDDING_DIM), nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
 

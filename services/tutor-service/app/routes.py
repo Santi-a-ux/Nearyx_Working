@@ -20,6 +20,7 @@ from app.schemas import (
     VERIFICATION_REVIEW_STATUSES,
 )
 from app.dependencies import require_tutor_role, get_current_user, require_admin
+from app.embeddings import build_profile_text, embed_passage, embed_query
 from datetime import datetime, timezone
 import uuid
 
@@ -38,6 +39,9 @@ async def create_profile(
     
     coord = f"SRID=4326;POINT({profile_in.lng} {profile_in.lat})" if profile_in.lng and profile_in.lat else None
 
+    profile_text = build_profile_text(profile_in.specialties, profile_in.categories)
+    profile_embedding = embed_passage(profile_text)
+
     new_profile = TutorProfile(
         user_id=user_id,
         specialties=profile_in.specialties,
@@ -45,7 +49,8 @@ async def create_profile(
         is_available=profile_in.is_available if profile_in.is_available is not None else True,
         hourly_rate=profile_in.hourly_rate,
         years_experience=profile_in.years_experience,
-        coordinates=coord
+        coordinates=coord,
+        embedding=profile_embedding
     )
     db.add(new_profile)
     await db.commit()
@@ -88,6 +93,10 @@ async def update_profile(
             
     if profile_in.lat is not None and profile_in.lng is not None:
         profile.coordinates = f'SRID=4326;POINT({profile_in.lng} {profile_in.lat})'
+
+    if profile_in.specialties is not None or profile_in.categories is not None:
+        profile_text = build_profile_text(profile.specialties, profile.categories)
+        profile.embedding = embed_passage(profile_text)
         
     await db.commit()
     await db.refresh(profile)
@@ -110,6 +119,7 @@ async def get_my_profile(
 @router.get('/', response_model=TutorListOut)
 async def list_tutors(
     category: Optional[str] = None,
+    q: Optional[str] = Query(None, description="búsqueda semántica libre, ej: 'llanta'"),
     is_available: Optional[bool] = None,
     lat: Optional[float] = None,
     lng: Optional[float] = None,
@@ -120,6 +130,42 @@ async def list_tutors(
 ):
     tutors = []
     total = 0
+
+    # Búsqueda semántica: si viene "q", se ordena por similitud del embedding
+    # en vez de (o además de) el filtro exacto por categoría.
+    query_embedding = embed_query(q) if q else None
+
+    if query_embedding is not None:
+        distance_expr = TutorProfile.embedding.cosine_distance(query_embedding)
+
+        fetch_stmt = select(
+            TutorProfile,
+            func.ST_Y(TutorProfile.coordinates).label('lat'),
+            func.ST_X(TutorProfile.coordinates).label('lng'),
+            distance_expr.label('semantic_distance')
+        ).where(TutorProfile.embedding.is_not(None))
+
+        if is_available is not None:
+            fetch_stmt = fetch_stmt.where(TutorProfile.is_available == is_available)
+
+        # Si además viene ubicación, se combina con el radio geográfico
+        if lat is not None and lng is not None and radius is not None:
+            fetch_stmt = fetch_stmt.where(func.ST_DistanceSphere(
+                TutorProfile.coordinates,
+                func.ST_SetSRID(func.ST_MakePoint(lng, lat), 4326)
+            ) <= radius)
+
+        # Umbral de relevancia: descarta matches demasiado lejanos semánticamente
+        # (0.0 = idéntico, 1.0 = sin relación). Ajusta este valor probando resultados reales.
+        fetch_stmt = fetch_stmt.where(distance_expr < 0.6)
+        fetch_stmt = fetch_stmt.order_by(distance_expr).limit(limit).offset(offset)
+
+        result = await db.execute(fetch_stmt)
+        rows = result.all()
+        total = len(rows)
+        for row in rows:
+            tutors.append(_format_profile_out(row.TutorProfile, lat=row.lat, lng=row.lng))
+        return {'tutors': tutors, 'total': total}
 
     # If lat/lng provided, use distance-based query and ordering
     if lat is not None and lng is not None and radius is not None:

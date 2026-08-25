@@ -19,7 +19,7 @@ class SupabaseStorageRepository:
     ):
         self.url = url or os.getenv(
             "SUPABASE_URL",
-            "https://bwwoqvaboapbpteqtmjp.supabase.co",
+            "https://jbgctnllykajfcjqxnly.supabase.co",
         )
         self.key = key or os.getenv(
             "SUPABASE_KEY"      )
