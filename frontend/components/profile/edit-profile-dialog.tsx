@@ -105,7 +105,7 @@ export function EditProfileDialog({ initialData }: EditProfileDialogProps) {
         Editar perfil
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-106.25">
+        <DialogContent className="sm:max-w-106.25 bg-white/90 backdrop-blur-md">
           <DialogHeader>
             <DialogTitle>Editar Perfil</DialogTitle>
           </DialogHeader>

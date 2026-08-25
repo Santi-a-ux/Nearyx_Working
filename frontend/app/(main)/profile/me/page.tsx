@@ -9,6 +9,7 @@ import { ProfileExpertActions } from "@/components/profile/profile-expert-action
 import { VerificationStatusActions } from "@/components/profile/verification-status-actions";
 import TutorPaymentSettings from "@/components/profile/tutor-payment-settings";
 import { ProfileNetwork, type NetworkRecommendations } from "@/components/profile/profile-network";
+import NetworkGraphBackground from "@/components/NetworkGraphBackground";
 import { appCardClass, appCardInnerClass, appCardSoftClass } from "@/lib/surface-styles";
 import { normalizeVerificationStatus, type VerificationRequest } from "@/lib/verification";
 
@@ -77,9 +78,14 @@ export default async function MyProfilePage() {
       : null;
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6 lg:py-8">
-      <div className={`overflow-hidden ${appCardClass}`}>
-        <div className="border-b border-border/60 bg-[linear-gradient(180deg,#EEF6FF_0%,#F8FBFF_100%)] px-6 py-6 lg:px-8 lg:py-7">
+    <div className="relative z-10 mx-auto max-w-4xl px-4 py-6 lg:py-8">
+      {userProfile?.user_id && (
+        <div className="pointer-events-none fixed inset-0 z-[-1] overflow-hidden">
+          <NetworkGraphBackground userId={userProfile.user_id} />
+        </div>
+      )}
+      <div className={`overflow-hidden ${appCardClass} bg-white/85 backdrop-blur-md`}>
+        <div className="border-b border-border/60 bg-[linear-gradient(180deg,#EEF6FF_0%,#F8FBFF_100%)]/85 px-6 py-6 lg:px-8 lg:py-7">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6">
               <UserAvatar name={resolvedDisplayName} size="profile" avatarUrl={userProfile?.avatar_url} />
@@ -115,17 +121,17 @@ export default async function MyProfilePage() {
 
         <div className="px-6 py-6 lg:px-8">
           <div className="grid gap-3 md:grid-cols-3">
-            <div className={appCardInnerClass}>
+            <div className={`${appCardInnerClass} bg-white/70`}>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Correo</p>
               <p className="mt-2 break-words text-sm font-semibold text-[#10314F]">{authUser?.email || "No disponible"}</p>
             </div>
-            <div className={appCardInnerClass}>
+            <div className={`${appCardInnerClass} bg-white/70`}>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Rol</p>
               <p className="mt-2 text-sm font-semibold text-[#10314F]">
                 {authUser?.role === "tutor" ? "Experto" : authUser?.role === "student" ? "Estudiante" : authUser?.role || "No disponible"}
               </p>
             </div>
-            <div className={appCardInnerClass}>
+            <div className={`${appCardInnerClass} bg-white/70`}>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Ubicación</p>
               <p className="mt-2 text-sm font-semibold text-[#10314F]">{resolvedLocation}</p>
             </div>
@@ -134,7 +140,7 @@ export default async function MyProfilePage() {
       </div>
 
       {rejectionNotes && (
-        <div className={`mt-6 ${appCardClass} border-semantic-error/30 p-6`}>
+        <div className={`mt-6 ${appCardClass} border-semantic-error/30 bg-white/85 backdrop-blur-md p-6`}>
           <p className="text-xs font-bold uppercase tracking-[0.24em] text-semantic-error">
             Verificación rechazada
           </p>
@@ -150,7 +156,7 @@ export default async function MyProfilePage() {
 
       {tutorProfile ? (
         <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className={`${appCardClass} p-6`}>
+          <div className={`${appCardClass} bg-white/85 backdrop-blur-md p-6`}>
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#10314F]/55">Perfil de experto</p>
@@ -162,11 +168,11 @@ export default async function MyProfilePage() {
             </div>
 
             <div className="mt-5 grid gap-3 md:grid-cols-2">
-              <div className={appCardInnerClass}>
+              <div className={`${appCardInnerClass} bg-white/70`}>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Tarifa por hora</p>
                 <p className="mt-2 text-lg font-bold text-[#10314F]">${tutorProfile.hourly_rate || 0}</p>
               </div>
-              <div className={appCardInnerClass}>
+              <div className={`${appCardInnerClass} bg-white/70`}>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Años de experiencia</p>
                 <p className="mt-2 text-lg font-bold text-[#10314F]">{tutorProfile.years_experience ?? 1}</p>
               </div>
@@ -185,19 +191,19 @@ export default async function MyProfilePage() {
             </div>
           </div>
 
-          <div className={`${appCardSoftClass} p-6`}>
+          <div className={`${appCardSoftClass} bg-white/75 backdrop-blur-md p-6`}>
             <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#10314F]/55">Cobros</p>
             <h2 className="mt-2 text-xl font-bold text-[#10314F]">Método de pago</h2>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
               Configura el método que usarás para recibir pagos y mantener tu perfil listo para clases.
             </p>
-            <div className={`mt-5 ${appCardInnerClass} bg-white`}>
+            <div className={`mt-5 ${appCardInnerClass} bg-white/85`}>
               <TutorPaymentSettings initial={tutorProfile.preferred_payment_method} />
             </div>
           </div>
         </div>
       ) : (
-        <div className={`mt-6 ${appCardSoftClass} border-dashed p-6`}>
+        <div className={`mt-6 ${appCardSoftClass} border-dashed bg-white/75 backdrop-blur-md p-6`}>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.24em] text-muted-foreground">Perfil de experto</p>
