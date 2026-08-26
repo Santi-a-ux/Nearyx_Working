@@ -6,7 +6,7 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { fetchApi } from '@/lib/api';
 import { isValidMapboxToken, pickMapboxToken } from '@/lib/mapbox-env';
-import { matchesTutorSearch, type TutorSearchRecord } from '@/lib/tutor-search';
+
 
 interface Tutor {
   id?: string;
@@ -212,7 +212,7 @@ export default function MapboxMap({ accessToken = '', topicFilter, searchResults
       .filter((tutor) => {
         const lat = tutor.lat ?? tutor.latitude;
         const lng = tutor.lng ?? tutor.longitude;
-        return typeof lat === 'number' && typeof lng === 'number' && matchesTutorSearch(tutor as TutorSearchRecord, topicFilter ?? '');
+        return typeof lat === 'number' && typeof lng === 'number';
       })
       .map((tutor) => {
         const lat = (tutor.lat ?? tutor.latitude) as number;
@@ -289,7 +289,7 @@ export default function MapboxMap({ accessToken = '', topicFilter, searchResults
       const localMatches = searchResults?.filter((tutor) => {
         const lat = tutor.lat ?? tutor.latitude;
         const lng = tutor.lng ?? tutor.longitude;
-        return typeof lat === 'number' && typeof lng === 'number' && matchesTutorSearch(tutor as TutorSearchRecord, topicFilter ?? '');
+        return typeof lat === 'number' && typeof lng === 'number';
       }) ?? [];
 
       if (localMatches.length > 0) {

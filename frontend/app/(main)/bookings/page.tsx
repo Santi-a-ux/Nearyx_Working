@@ -7,6 +7,7 @@ import { UserAvatar } from "@/components/user-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useScreenReader } from "@/components/providers/ScreenReaderContext"
 
 interface Booking {
   id: string;
@@ -42,6 +43,8 @@ export default function BookingsPage() {
   const [bookings, setBookings] = useState<BookingEnriched[]>([]);
   const [loading, setLoading] = useState(true);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+    const { speak, stop } = useScreenReader();
+
 
   const loadBookings = useCallback(async () => {
     setLoading(true);
@@ -75,12 +78,19 @@ export default function BookingsPage() {
       );
 
       setBookings(enriched);
+
+      if (enriched.length === 0) {
+        speak("No tienes reservas activas en tu agenda.");
+      } else {
+        speak(`Se han cargado ${enriched.length} reservas activas.`);
+      }
     } catch {
       setBookings([]);
+      speak("Hubo un error al intentar cargar las reservas.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [speak]);
 
   useEffect(() => {
     void loadBookings();
@@ -88,15 +98,16 @@ export default function BookingsPage() {
 
   const fmt = (iso: string) =>
     new Date(iso).toLocaleString("es-CO", {
-      weekday: "short",
+      weekday: "long",
       day: "2-digit",
-      month: "short",
+      month: "long",
       hour: "2-digit",
       minute: "2-digit",
     });
 
   const handleCancelBooking = async (bookingId: string) => {
     setCancellingId(bookingId);
+    speak("Eliminando la reserva elegida.");
     try {
       const response = await fetch("/api/bookings", {
         method: "PATCH",
@@ -111,9 +122,13 @@ export default function BookingsPage() {
 
       setBookings((prev) => prev.filter((b) => b.id !== bookingId));
       toast.success("Reserva eliminada");
+      speak("Reserva eliminada correctamente.");
+
     } catch (err) {
       const e = err as Error;
       toast.error(e.message || "No se pudo eliminar la reserva");
+      speak("No se pudo eliminar la reserva debido a un error.");
+
     } finally {
       setCancellingId(null);
     }
@@ -121,7 +136,14 @@ export default function BookingsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div>
+      <div 
+        onMouseEnter={() => speak("Sección Agenda. Mis reservas. Sesiones activas y confirmadas.")}
+        onMouseLeave={stop}
+        tabIndex={0}
+        onFocus={() => speak("Sección Agenda. Mis reservas. Sesiones activas y confirmadas.")}
+        onBlur={stop}
+        className="focus:outline-none focus:ring-1 focus:ring-primary rounded p-1"
+      >
         <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">Agenda</p>
         <h1 className="mt-1 text-2xl font-bold text-foreground">Mis reservas</h1>
         <p className="mt-1 text-sm text-muted-foreground">Sesiones activas y confirmadas</p>
@@ -132,7 +154,14 @@ export default function BookingsPage() {
           <CardContent className="p-6 text-sm text-muted-foreground">Cargando...</CardContent>
         </Card>
       ) : bookings.length === 0 ? (
-        <Card className="border-dashed p-0">
+        <Card 
+          className="border-dashed p-0 focus:outline-none focus:ring-2 focus:ring-primary"
+          tabIndex={0}
+          onMouseEnter={() => speak("No tienes reservas activas en tu agenda.")}
+          onFocus={() => speak("No tienes reservas activas en tu agenda.")}
+          onMouseLeave={stop}
+          onBlur={stop}
+        >
           <CardContent className="flex flex-col items-center gap-3 p-10 text-center">
             <CalendarDays className="h-10 w-10 text-muted-foreground/40" />
             <p className="text-sm font-medium text-muted-foreground">No tienes reservas activas</p>
@@ -144,8 +173,18 @@ export default function BookingsPage() {
             const s = STATUS[b.status] ?? { label: b.status, variant: "outline" as const };
             const isCancelling = cancellingId === b.id;
 
+            const textoTarjeta = `Reserva con el ${b.otherRole}, ${b.otherName}. Estado: ${s.label}. Inicia el ${fmt(b.scheduled_start)}. Termina el ${fmt(b.scheduled_end)}.`;
+
             return (
-              <Card key={b.id} className="p-0 shadow-sm">
+              <Card 
+                key={b.id} 
+                className="p-0 shadow-sm focus:ring-2 focus:ring-primary focus:outline-none transition-shadow"
+                tabIndex={0} 
+                onMouseEnter={() => speak(textoTarjeta)}
+                onFocus={() => speak(textoTarjeta)}
+                onMouseLeave={stop}
+                onBlur={stop}
+              >
                 <CardContent className="flex items-start justify-between gap-4 p-4">
                   <div className="flex items-center gap-3">
                     <UserAvatar name={b.otherName} size="mlg" avatarUrl={b.otherAvatar} />
@@ -174,7 +213,18 @@ export default function BookingsPage() {
                         size="sm"
                         variant="outline"
                         disabled={isCancelling}
-                        onClick={() => handleCancelBooking(b.id)}
+                        onClick={(e) =>  {
+                          e.stopPropagation();
+                          handleCancelBooking(b.id);
+                        }}
+                        onMouseEnter={(e) => {
+                          e.stopPropagation(); 
+                          speak(`Botón. Eliminar reserva con ${b.otherName}`);
+                        }}
+                        onFocus={(e) => {
+                          e.stopPropagation();
+                          speak(`Botón. Eliminar reserva con ${b.otherName}`);
+                        }}
                       >
                         {isCancelling ? "Eliminando..." : "Eliminar"}
                       </Button>

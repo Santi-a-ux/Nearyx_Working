@@ -12,6 +12,7 @@ import { ProfileNetwork, type NetworkRecommendations } from "@/components/profil
 import NetworkGraphBackground from "@/components/NetworkGraphBackground";
 import { appCardClass, appCardInnerClass, appCardSoftClass } from "@/lib/surface-styles";
 import { normalizeVerificationStatus, type VerificationRequest } from "@/lib/verification";
+import { ScreenReaderSection } from "@/components/ui/screen-reader-section";
 
 interface UserProfile {
   user_id: string;
@@ -86,6 +87,7 @@ export default async function MyProfilePage() {
       )}
       <div className={`overflow-hidden ${appCardClass} bg-white/85 backdrop-blur-md`}>
         <div className="border-b border-border/60 bg-[linear-gradient(180deg,#EEF6FF_0%,#F8FBFF_100%)]/85 px-6 py-6 lg:px-8 lg:py-7">
+
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6">
               <UserAvatar name={resolvedDisplayName} size="profile" avatarUrl={userProfile?.avatar_url} />
@@ -117,9 +119,20 @@ export default async function MyProfilePage() {
               {!tutorProfile && <ProfileExpertActions />}
             </div>
           </div>
-        </div>
+        </ScreenReaderSection>
 
-        <div className="px-6 py-6 lg:px-8">
+        <ScreenReaderSection
+          text={`Información de la cuenta. Correo: ${
+            authUser?.email || "No disponible"
+          }. Rol: ${
+            authUser?.role === "tutor"
+              ? "Experto"
+              : authUser?.role === "student"
+                ? "Estudiante"
+                : authUser?.role || "No disponible"
+          }. Ubicación: ${resolvedLocation}.`}
+          className="px-6 py-6 lg:px-8"
+        >
           <div className="grid gap-3 md:grid-cols-3">
             <div className={`${appCardInnerClass} bg-white/70`}>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Correo</p>
@@ -136,7 +149,7 @@ export default async function MyProfilePage() {
               <p className="mt-2 text-sm font-semibold text-[#10314F]">{resolvedLocation}</p>
             </div>
           </div>
-        </div>
+        </ScreenReaderSection>
       </div>
 
       {rejectionNotes && (
@@ -149,7 +162,7 @@ export default async function MyProfilePage() {
           <p className="mt-3 text-sm text-muted-foreground">
             Usa el botón &laquo;Corregir y reenviar&raquo; junto a tu nombre para actualizar la solicitud.
           </p>
-        </div>
+        </ScreenReaderSection>
       )}
 
       <ProfileNetwork network={network} />
@@ -201,7 +214,7 @@ export default async function MyProfilePage() {
               <TutorPaymentSettings initial={tutorProfile.preferred_payment_method} />
             </div>
           </div>
-        </div>
+        </ScreenReaderSection>
       ) : (
         <div className={`mt-6 ${appCardSoftClass} border-dashed bg-white/75 backdrop-blur-md p-6`}>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -212,7 +225,7 @@ export default async function MyProfilePage() {
             </div>
             <ProfileExpertActions triggerLabel="Completar perfil de experto" />
           </div>
-        </div>
+        </ScreenReaderSection>
       )}
     </div>
   );

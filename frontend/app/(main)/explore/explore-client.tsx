@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
 
 import { UserAvatar } from "@/components/user-avatar";
@@ -10,8 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchApi } from "@/lib/api";
+import { buildTutorOccupationLabel,  type TutorSearchRecord } from "@/lib/tutor-search";
+import { useScreenReader } from "@/components/providers/ScreenReaderContext";
 import { FEATURED_TOPICS } from "@/lib/constants";
-import { buildTutorOccupationLabel, matchesTutorSearch, type TutorSearchRecord } from "@/lib/tutor-search";
 
 interface Tutor {
   id?: string;
@@ -43,6 +44,7 @@ interface ExploreClientProps {
 }
 
 export default function ExploreClient({ mapboxAccessToken = "" }: ExploreClientProps) {
+  const { speak, stop } = useScreenReader();
   const [tutors, setTutors] = useState<Tutor[]>([]);
   const [searchValue, setSearchValue] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
@@ -84,18 +86,58 @@ export default function ExploreClient({ mapboxAccessToken = "" }: ExploreClientP
     };
   }, []);
 
-  const filteredTutors = useMemo(() => {
-    const query = activeSearch.trim();
-    if (!query) return tutors;
+  const [semanticTutors, setSemanticTutors] = useState<Tutor[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
-    return tutors.filter((tutor) => matchesTutorSearch(tutor as TutorSearchRecord, query));
-  }, [activeSearch, tutors]);
+  useEffect(() => {
+    const query = activeSearch.trim();
+    if (!query) {
+      setSemanticTutors([]);
+      return;
+    }
+
+    let active = true;
+    setIsSearching(true);
+
+    (async () => {
+      try {
+        const res = await fetchApi<Tutor[] | TutorsResponse>(
+          `/api/tutors/?q=${encodeURIComponent(query)}&limit=50`
+        ).catch(() => [] as Tutor[]);
+        const list = Array.isArray(res) ? res : res?.tutors ?? [];
+        if (active) setSemanticTutors(list);
+      } finally {
+        if (active) setIsSearching(false);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [activeSearch]);
+
+  const filteredTutors = activeSearch.trim() ? semanticTutors : tutors;
 
   const visibleTutors = mapPhase === 'found' && mapTutors.length > 0 ? mapTutors : filteredTutors;
 
   return (
     <div className="flex h-full min-h-[calc(100vh-7rem)] gap-4">
-      <aside className="w-60 shrink-0 rounded-2xl border border-border bg-[#F8FBFF] p-4 shadow-sm">
+      <aside
+          className="w-60 shrink-0 rounded-2xl border border-border bg-[#F8FBFF] p-4 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          tabIndex={0}
+          onMouseEnter={() =>
+            speak(
+              `Sección de resultados en vivo. Hay ${visibleTutors.length} expertos disponibles. La lista se sincroniza con el mapa.`
+            )
+          }
+          onMouseLeave={stop}
+          onFocus={() =>
+            speak(
+              `Sección de resultados en vivo. Hay ${visibleTutors.length} expertos disponibles. La lista se sincroniza con el mapa.`
+            )
+          }
+          onBlur={stop}
+        >
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">Resultados en vivo</p>
         <h2 className="mt-2 text-lg font-bold text-foreground">Expertos cerca de ti</h2>
         <p className="mt-1 text-sm text-muted-foreground">La lista se sincroniza con el mapa.</p>
@@ -109,20 +151,32 @@ export default function ExploreClient({ mapboxAccessToken = "" }: ExploreClientP
               if (event.key === "Enter") setActiveSearch(searchValue.trim());
             }}
             placeholder="Buscar experto o materia"
+            aria-label="Buscar experto o materia"
+            onFocus={() =>
+              speak(
+                "Buscador de expertos o materias. Escribe lo que estás buscando y presiona Enter."
+              )
+            }
+            onBlur={stop}
             className="h-10 rounded-lg border-[0.5px] border-border bg-[#ffffff] pl-9 text-foreground placeholder:text-muted-foreground focus:border-primary focus:bg-white"
           />
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
           {FEATURED_TOPICS.slice(0, 6).map((topic) => (
-            <Button
+             <Button
               key={topic}
               type="button"
               variant="outline"
               onClick={() => {
                 setSearchValue(topic);
                 setActiveSearch(topic);
+                speak(`Mostrando expertos de ${topic}.`);
               }}
+              onMouseEnter={() => speak(`Tema destacado: ${topic}.`)}
+              onFocus={() => speak(`Tema destacado: ${topic}.`)}
+              onMouseLeave={stop}
+              onBlur={stop}
               className="h-8 rounded-full border-border bg-[#95C9FC] px-3 text-xs font-bold text-[#ffffff] transition-colors hover:bg-white"
             >
               {topic}
@@ -133,7 +187,10 @@ export default function ExploreClient({ mapboxAccessToken = "" }: ExploreClientP
         <div className="mt-4 text-xs text-muted-foreground">La lista se sincroniza con el mapa y resalta coincidencias por tema.</div>
 
         <div className="mt-4 max-h-[calc(100vh-20rem)] space-y-3 overflow-auto pr-1">
-          {visibleTutors.length === 0 ? (
+        {isSearching ? (<div className="rounded-xl border border-dashed border-border bg-[#ffffff] p-4 text-sm text-muted-foreground">
+              Buscando...
+            </div>
+          ): visibleTutors.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border bg-[#ffffff] p-4 text-sm text-muted-foreground">
               No hay resultados para esta búsqueda.
             </div>
@@ -146,7 +203,27 @@ export default function ExploreClient({ mapboxAccessToken = "" }: ExploreClientP
                 : "Cerca";
 
               return (
-                <div key={tutor.user_id} className="rounded-xl border border-border bg-white p-3 shadow-sm">
+                <div
+                  key={tutor.user_id}
+                  className="rounded-xl border border-border bg-white p-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  tabIndex={0}
+                  onMouseEnter={() =>
+                    speak(
+                      `Experto ${tutor.display_name || tutor.full_name || "sin nombre"}. ` +
+                      `${tutor.bio || buildTutorOccupationLabel(tutor as TutorSearchRecord)}. ` +
+                      `Distancia: ${distance}.`
+                    )
+                  }
+                  onMouseLeave={stop}
+                  onFocus={() =>
+                    speak(
+                      `Experto ${tutor.display_name || tutor.full_name || "sin nombre"}. ` +
+                      `${tutor.bio || buildTutorOccupationLabel(tutor as TutorSearchRecord)}. ` +
+                      `Distancia: ${distance}.`
+                    )
+                  }
+                  onBlur={stop}
+                >
                   <div className="flex items-start gap-3">
                     <UserAvatar
                       name={tutor.display_name || tutor.full_name || "Experto"}
@@ -161,10 +238,36 @@ export default function ExploreClient({ mapboxAccessToken = "" }: ExploreClientP
                       <p className="mt-1 truncate text-xs text-muted-foreground">{tutor.bio || buildTutorOccupationLabel(tutor as TutorSearchRecord)}</p>
                       <div className="mt-2 flex items-center gap-3">
                         <span className={tutor.distance_km != null ? "h-2 w-2 rounded-full bg-semantic-success" : "h-2 w-2 rounded-full bg-neutral-400"} />
-                        <Link href={`/profile/${tutor.user_id}`} className="text-xs font-bold text-foreground hover:text-primary">
+                        <Link
+                          href={`/profile/${tutor.user_id}`}
+                          className="text-xs font-bold text-foreground hover:text-primary"
+                          onMouseEnter={(event) => {
+                            event.stopPropagation();
+                            speak(`Botón. Ver perfil de ${tutor.display_name || "este experto"}.`);
+                          }}
+                          onFocus={(event) => {
+                            event.stopPropagation();
+                            speak(`Botón. Ver perfil de ${tutor.display_name || "este experto"}.`);
+                          }}
+                          onMouseLeave={stop}
+                          onBlur={stop}
+                        >
                           Ver perfil
                         </Link>
-                        <Link href={`/messages?userId=${tutor.user_id}`} className="text-xs font-bold text-primary hover:text-brand-hover">
+                        <Link
+                          href={`/messages?userId=${tutor.user_id}`}
+                          className="text-xs font-bold text-primary hover:text-brand-hover"
+                          onMouseEnter={(event) => {
+                            event.stopPropagation();
+                            speak(`Botón. Contactar a ${tutor.display_name || "este experto"}.`);
+                          }}
+                          onFocus={(event) => {
+                            event.stopPropagation();
+                            speak(`Botón. Contactar a ${tutor.display_name || "este experto"}.`);
+                          }}
+                          onMouseLeave={stop}
+                          onBlur={stop}
+                        >
                           Contactar
                         </Link>
                       </div>

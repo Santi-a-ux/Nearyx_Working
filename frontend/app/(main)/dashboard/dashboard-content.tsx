@@ -5,7 +5,7 @@ import { Heart, ImagePlus, MessageSquare, Send, Share2, Upload, X } from "lucide
 import Link from "next/link";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { toast } from "sonner";
-
+import { useScreenReader } from "@/components/providers/ScreenReaderContext";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
@@ -172,6 +172,8 @@ async function fetchFeaturedExperts(): Promise<{ tutors: TutorSidebarItem[] }> {
 
 export function DashboardContent({ mapboxAccessToken = "" }: { mapboxAccessToken?: string }) {
   const queryClient = useQueryClient();
+  const { speak, stop } = useScreenReader();
+
   const [composerOpen, setComposerOpen] = useState(false);
   const [newPost, setNewPost] = useState("");
   const [attachedImageUrl, setAttachedImageUrl] = useState<string | null>(null);
@@ -226,6 +228,12 @@ export function DashboardContent({ mapboxAccessToken = "" }: { mapboxAccessToken
       window.removeEventListener("nearyx-search", readCurrentQuery as EventListener);
     };
   }, []);
+    useEffect(() => {
+    if (searchQuery) {
+      speak(`Filtrando publicaciones por la palabra clave: ${searchQuery}`);
+    }
+  }, [searchQuery, speak]);
+
 
   useEffect(() => {
     const refreshFeaturedExperts = () => {
@@ -345,7 +353,25 @@ export function DashboardContent({ mapboxAccessToken = "" }: { mapboxAccessToken
   return (
     <div className="mx-auto grid max-w-[1280px] gap-8 xl:grid-cols-[minmax(0,1fr)_320px]">
       <section className="min-w-0 space-y-5">
-        <div className={cn(cardElevatedClass, "p-5")}>
+          <div
+            className={cn(
+              cardElevatedClass,
+              "p-5 focus:outline-none focus:ring-2 focus:ring-primary"
+            )}
+            tabIndex={0}
+            onMouseEnter={() =>
+              speak(
+                "Sección crear publicación. Aquí puedes escribir una publicación para compartir algo que quieres aprender o enseñar."
+              )
+            }
+            onMouseLeave={stop}
+            onFocus={() =>
+              speak(
+                "Sección crear publicación. Aquí puedes escribir una publicación para compartir algo que quieres aprender o enseñar."
+              )
+            }
+            onBlur={stop}
+          >
           <div className="flex gap-3">
             <UserAvatar name={currentUserLabel} size="md" avatarUrl={currentUserAvatar} />
             <div className="min-w-0 flex-1">
@@ -354,6 +380,14 @@ export function DashboardContent({ mapboxAccessToken = "" }: { mapboxAccessToken
                 variant="outline"
                 className="h-auto min-h-12 w-full justify-start rounded-xl border-input bg-muted/50 px-4 py-3 text-left text-body text-muted-foreground shadow-none hover:bg-muted"
                 onClick={() => setComposerOpen(true)}
+                onMouseEnter={() =>
+                  speak("Botón. ¿Qué quieres aprender o enseñar hoy? Abre el formulario para crear una publicación.")
+                }
+                onFocus={() =>
+                  speak("Botón. ¿Qué quieres aprender o enseñar hoy? Abre el formulario para crear una publicación.")
+                }
+                onMouseLeave={stop}
+                onBlur={stop}
               >
                 ¿Qué quieres aprender o enseñar hoy?
               </Button>
@@ -374,7 +408,7 @@ export function DashboardContent({ mapboxAccessToken = "" }: { mapboxAccessToken
               <DialogTitle className="text-h3 text-center">Crear publicación</DialogTitle>
             </DialogHeader>
 
-            <form
+            <form    
               className="space-y-4 px-5 py-4"
               onSubmit={(event) => {
                 event.preventDefault();
@@ -486,6 +520,8 @@ export function DashboardContent({ mapboxAccessToken = "" }: { mapboxAccessToken
 }
 
 function PostCard({ post, toneIndex }: { post: FeedPost; toneIndex: number }) {
+  const { speak, stop } = useScreenReader();
+
   const [liked, setLiked] = useState(false);
   const [likes, setLikes] = useState(12 + toneIndex);
   const [showComments, setShowComments] = useState(false);
@@ -546,7 +582,35 @@ function PostCard({ post, toneIndex }: { post: FeedPost; toneIndex: number }) {
   };
 
   return (
-    <article className={cn(cardElevatedClass, "p-6")}>
+    <article
+        className={cn(
+          cardElevatedClass,
+          "p-6 focus:outline-none focus:ring-2 focus:ring-primary"
+        )}
+        tabIndex={0}
+        onMouseEnter={() => {
+          const role = isExpert ? "Experto" : "Estudiante";
+
+          speak(
+            `Publicación de ${post.author_name || "Usuario"}, ${role}. ` +
+            `${post.content}. ` +
+            `${likes} me gusta. ` +
+            `${commentsLoaded ? comments.length : 0} comentarios.`
+          );
+        }}
+        onMouseLeave={stop}
+        onFocus={() => {
+          const role = isExpert ? "Experto" : "Estudiante";
+
+          speak(
+            `Publicación de ${post.author_name || "Usuario"}, ${role}. ` +
+            `${post.content}. ` +
+            `${likes} me gusta. ` +
+            `${commentsLoaded ? comments.length : 0} comentarios.`
+          );
+        }}
+        onBlur={stop}
+      >
         <div className="flex items-start gap-3">
           <UserAvatar name={post.author_name || "Usuario"} size="md" avatarUrl={post.author_avatar} />
           <div className="min-w-0 flex-1">
@@ -580,22 +644,71 @@ function PostCard({ post, toneIndex }: { post: FeedPost; toneIndex: number }) {
                     return !previous;
                   });
                 }}
+                onMouseEnter={() =>
+                  speak(
+                    liked
+                      ? `Botón. Quitar me gusta. Esta publicación tiene ${likes} me gusta.`
+                      : `Botón. Me gusta. Esta publicación tiene ${likes} me gusta.`
+                  )
+                }
+                onFocus={() =>
+                  speak(
+                    liked
+                      ? `Botón. Quitar me gusta. Esta publicación tiene ${likes} me gusta.`
+                      : `Botón. Me gusta. Esta publicación tiene ${likes} me gusta.`
+                  )
+                }
+                onMouseLeave={stop}
+                onBlur={stop}
               >
                 <Heart className={cn("h-4 w-4", liked && "fill-current text-primary")} />
                 <span className="text-caption">{likes}</span>
               </Button>
-              <Button type="button" variant="ghost" size="sm" className="gap-2" onClick={() => void toggleComments()}>
+              <Button type="button" variant="ghost" size="sm" className="gap-2" 
+              onClick={() => void toggleComments()}
+              onMouseEnter={() =>
+                speak(
+                  commentsLoaded
+                    ? `Botón. Comentarios. Hay ${comments.length} comentarios.`
+                    : "Botón. Comentar. Abre la sección para escribir un comentario."
+                )
+              }
+              onFocus={() =>
+                speak(
+                  commentsLoaded
+                    ? `Botón. Comentarios. Hay ${comments.length} comentarios.`
+                    : "Botón. Comentar. Abre la sección para escribir un comentario."
+                )
+              }
+              onMouseLeave={stop}
+              onBlur={stop}>
                 <MessageSquare className="h-4 w-4" />
                 <span className="text-caption">
                   {commentsLoaded ? `Comentarios (${comments.length})` : "Comentar"}
                 </span>
               </Button>
-              <Button type="button" variant="ghost" size="sm">
+              <Button type="button" variant="ghost" size="sm"
+              aria-label="Compartir publicación"
+              onMouseEnter={() => speak("Botón. Compartir publicación.")}
+              onFocus={() => speak("Botón. Compartir publicación.")}
+              onMouseLeave={stop}
+              onBlur={stop}>
                 <Share2 className="h-4 w-4" />
               </Button>
               {isExpert && isUuid(post.author_id) ? (
                 <div className="ml-auto">
-                  <Link href={`/messages?userId=${post.author_id}`} className={buttonVariants({ variant: "subtle", size: "sm" })}>
+                  <Link
+                    href={`/messages?userId=${post.author_id}`}
+                    className={buttonVariants({ variant: "subtle", size: "sm" })}
+                    onMouseEnter={() =>
+                      speak(`Botón. Contactar a ${post.author_name || "este usuario"}.`)
+                    }
+                    onFocus={() =>
+                      speak(`Botón. Contactar a ${post.author_name || "este usuario"}.`)
+                    }
+                    onMouseLeave={stop}
+                    onBlur={stop}
+                  >
                     Contactar
                   </Link>
                 </div>
@@ -603,12 +716,33 @@ function PostCard({ post, toneIndex }: { post: FeedPost; toneIndex: number }) {
             </footer>
 
             {showComments ? (
-              <div className="mt-4 space-y-3 border-t border-border pt-4">
+              <div
+                className="mt-4 space-y-3 border-t border-border pt-4"
+                tabIndex={0}
+                onMouseEnter={() =>
+                  speak(
+                    comments.length === 0
+                      ? "Sección de comentarios. No hay comentarios todavía."
+                      : `Sección de comentarios. Hay ${comments.length} comentarios.`
+                  )
+                }
+                onMouseLeave={stop}
+                onFocus={() =>
+                  speak(
+                    comments.length === 0
+                      ? "Sección de comentarios. No hay comentarios todavía."
+                      : `Sección de comentarios. Hay ${comments.length} comentarios.`
+                  )
+                }
+                onBlur={stop}
+              >
                 <div className="flex gap-2">
                   <Input
                     value={commentText}
                     onChange={(event) => setCommentText(event.target.value)}
                     placeholder="Escribe un comentario..."
+                    aria-label="Escribe un comentario"
+
                     maxLength={500}
                     disabled={commentSubmitting}
                     onKeyDown={(event) => {
@@ -624,7 +758,12 @@ function PostCard({ post, toneIndex }: { post: FeedPost; toneIndex: number }) {
                     size="sm"
                     disabled={!commentText.trim() || commentSubmitting}
                     onClick={() => void submitComment()}
+                    onMouseEnter={() => speak("Botón. Enviar comentario.")}
+                    onFocus={() => speak("Botón. Enviar comentario.")}
+                    onMouseLeave={stop}
+                    onBlur={stop}
                   >
+                  
                     {commentSubmitting ? "..." : "Enviar"}
                   </Button>
                 </div>

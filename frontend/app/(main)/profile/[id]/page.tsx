@@ -17,7 +17,7 @@ import {
   type VerificationPublic,
 } from "@/lib/verification";
 import { Clock, MapPin, MessageCircle, Star } from "lucide-react";
-
+import {ScreenReaderSection} from "@/components/ui/screen-reader-section";
 interface TutorProfile {
   user_id: string;
   specialties?: string[];
@@ -104,7 +104,14 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 lg:py-8">
       <div className={`overflow-hidden ${appCardClass}`}>
-        <div className="border-b border-border/60 bg-[linear-gradient(180deg,#EEF6FF_0%,#F8FBFF_100%)] px-6 py-6 lg:px-8 lg:py-7">
+        <ScreenReaderSection
+          text={`Perfil de ${displayName}. ${
+            tutor.is_available ? "Está disponible." : "No está disponible."
+          } Ubicación: ${
+            userProfile?.location_name || "sin ubicación pública"
+          }. ${bio}`}
+          className="border-b border-border/60 bg-[linear-gradient(180deg,#EEF6FF_0%,#F8FBFF_100%)] px-6 py-6 lg:px-8 lg:py-7"
+        >
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6">
               <UserAvatar name={displayName} size="profileLg" avatarUrl={userProfile?.avatar_url} />
@@ -126,16 +133,25 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
             <div className="flex flex-wrap gap-3">
               <MessageButton userId={tutor.user_id} />
               <Link href={`/messages?userId=${tutor.user_id}`}>
-                <Button variant="outline" className="rounded-xl border-border bg-[#EEF6FF] px-5 text-[#2563EB] hover:bg-[#E0EFFF]">
+                <Button aria-label={`Abrir chat con ${displayName}`} variant="outline" className="rounded-xl border-border bg-[#EEF6FF] px-5 text-[#2563EB] hover:bg-[#E0EFFF]">
                   <MessageCircle className="mr-2 h-4 w-4" />
                   Abrir chat
                 </Button>
               </Link>
             </div>
           </div>
-        </div>
+        </ScreenReaderSection>
 
-        <div className="px-6 py-6 lg:px-8">
+        <ScreenReaderSection
+          text={`Información del experto. Tarifa: ${
+            tutor.hourly_rate || 0
+          } pesos por hora. Experiencia: ${
+            tutor.years_experience ?? 1
+          } años. Ubicación: ${
+            userProfile?.location_name || "Sin dato"
+          }. Contacto: listo para responder.`}
+          className="px-6 py-6 lg:px-8"
+        >
           <div className="grid gap-3 md:grid-cols-4">
             <div className={appCardInnerClass}>
               <Clock className="h-4 w-4 text-[#2563EB]" />
@@ -158,7 +174,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
               <p className="mt-2 text-lg font-bold text-[#10314F]">Listo para responder</p>
             </div>
           </div>
-        </div>
+         </ScreenReaderSection>
       </div>
 
       <Tabs defaultValue="about" className="mt-6">
@@ -174,10 +190,17 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
         </TabsList>
 
         <TabsContent value="about" className="mt-4">
+          <ScreenReaderSection
+            text={`Sección Sobre mí. Biografía: ${
+              userProfile?.bio ||
+              "Este experto aún no ha añadido una biografía."
+            }`}
+          >
           <div className={`${appCardClass} p-6`}>
             <p className="text-xs font-bold uppercase tracking-[0.24em] text-muted-foreground">Biografía</p>
             <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-foreground/80">{userProfile?.bio || "Este experto aún no ha añadido una biografía."}</p>
           </div>
+          </ScreenReaderSection>
         </TabsContent>
 
         {showCredentials && verification && (
@@ -250,6 +273,13 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
         )}
 
         <TabsContent value="skills" className="mt-4">
+          <ScreenReaderSection
+              text={`Sección Habilidades y especialidades. ${
+                  skills.length > 0
+                  ? `Habilidades: ${skills.join(", ")}.`
+                  : "No ha especificado habilidades."
+              }`}
+          >
           <div className={`${appCardClass} p-6`}>
             <p className="text-xs font-bold uppercase tracking-[0.24em] text-muted-foreground">Habilidades y especialidades</p>
             <div className="mt-4 flex flex-wrap gap-2">
@@ -264,9 +294,13 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
               )}
             </div>
           </div>
+          </ScreenReaderSection>
         </TabsContent>
 
         <TabsContent value="reviews" className="mt-4">
+          <ScreenReaderSection
+            text="Sección de reseñas. Aquí se muestran las valoraciones realizadas por los estudiantes."
+          >
           <div className={`${appCardClass} p-6`}>
             <p className="text-xs font-bold uppercase tracking-[0.24em] text-muted-foreground">Reseñas</p>
             <div className="mt-4 space-y-4">
@@ -276,6 +310,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
               </div>
             </div>
           </div>
+          </ScreenReaderSection>
         </TabsContent>
       </Tabs>
       <ProfileNetwork network={network} />
