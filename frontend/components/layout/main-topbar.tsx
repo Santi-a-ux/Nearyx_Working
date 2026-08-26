@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { LogOut, Search } from "lucide-react";
-
+import { LogOut, Search, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NotificationsBell } from "@/components/layout/notifications-bell";
 import { UserAvatar } from "@/components/user-avatar";
+import {useScreenReader } from "@/components/providers/ScreenReaderContext";
 
 function isDashboardPath(pathname: string) {
   return pathname === "/dashboard" || pathname.startsWith("/dashboard/");
@@ -25,6 +25,9 @@ export function MainTopbar({
   const pathname = usePathname();
   const showFeedSearch = isDashboardPath(pathname);
   const [searchValue, setSearchValue] = useState("");
+
+
+   const { isActive, toggleReader } = useScreenReader();
 
   useEffect(() => {
     if (!showFeedSearch) {
@@ -116,6 +119,26 @@ export function MainTopbar({
       ) : null}
 
       <div className="flex items-center justify-end gap-2 justify-self-end">
+
+        {/* boton del lector de pantalla   */}
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={toggleReader}
+          title={isActive ? "Desactivar lector de voz" : "Activar lector de voz"}
+          aria-label={isActive ? "Desactivar lector de voz" : "Activar lector de voz"}
+          className={`h-9 rounded-lg border border-border px-3 font-semibold transition-colors ${
+            isActive 
+              ? "bg-[#22c55e] text-white hover:bg-[#16a34a] hover:text-white" 
+              : "bg-[#C6E2FE] text-[#000000] hover:bg-[rgba(149,201,252,0.88)]"
+          }`}
+        >
+          {isActive ? <Volume2 className="mr-1.5 h-4 w-4 animate-pulse" /> : <VolumeX className="mr-1.5 h-4 w-4" />}
+          {isActive ? "Voz Activa" : "Activar Voz"}
+        </Button>
+
         <NotificationsBell />
         <div className="flex items-center gap-2 rounded-full border border-[#F8FBFF] bg-[#F8FBFF] px-2 py-1.5">
           <UserAvatar name={userLabel} size="sm" avatarUrl={avatarUrl || undefined} />

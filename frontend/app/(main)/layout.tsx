@@ -2,6 +2,7 @@ import { AppSidebar } from "@/components/sidebar/app-sidebar";
 import { fetchApi } from "@/lib/api";
 import { logoutAction } from "@/lib/auth";
 import { MainTopbar } from "@/components/layout/main-topbar";
+import {ScreenReaderProvider} from "@/components/providers/ScreenReaderContext";
 import type { ReactNode } from "react";
 
 interface SessionUser {
@@ -29,6 +30,9 @@ export default async function MainLayout({
   const avatarUrl = userProfile?.avatar_url;
 
   return (
+
+        <ScreenReaderProvider>
+
     <div className="min-h-screen bg-background text-foreground">
       <MainTopbar userLabel={userLabel} avatarUrl={avatarUrl} logoutAction={logoutAction} />
       <AppSidebar role={authUser?.role} />
@@ -38,5 +42,7 @@ export default async function MainLayout({
         </div>
       </main>
     </div>
+        </ScreenReaderProvider>
+
   );
 }
