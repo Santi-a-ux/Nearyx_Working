@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
 
 import { UserAvatar } from "@/components/user-avatar";
@@ -10,8 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchApi } from "@/lib/api";
-import { FEATURED_TOPICS } from "@/lib/constants";
-import { buildTutorOccupationLabel, matchesTutorSearch, type TutorSearchRecord } from "@/lib/tutor-search";
+import { buildTutorOccupationLabel,  type TutorSearchRecord } from "@/lib/tutor-search";
 import { useScreenReader } from "@/components/providers/ScreenReaderContext";
 
 
@@ -87,12 +86,37 @@ export default function ExploreClient({ mapboxAccessToken = "" }: ExploreClientP
     };
   }, []);
 
-  const filteredTutors = useMemo(() => {
-    const query = activeSearch.trim();
-    if (!query) return tutors;
+  const [semanticTutors, setSemanticTutors] = useState<Tutor[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
-    return tutors.filter((tutor) => matchesTutorSearch(tutor as TutorSearchRecord, query));
-  }, [activeSearch, tutors]);
+  useEffect(() => {
+    const query = activeSearch.trim();
+    if (!query) {
+      setSemanticTutors([]);
+      return;
+    }
+
+    let active = true;
+    setIsSearching(true);
+
+    (async () => {
+      try {
+        const res = await fetchApi<Tutor[] | TutorsResponse>(
+          `/api/tutors/?q=${encodeURIComponent(query)}&limit=50`
+        ).catch(() => [] as Tutor[]);
+        const list = Array.isArray(res) ? res : res?.tutors ?? [];
+        if (active) setSemanticTutors(list);
+      } finally {
+        if (active) setIsSearching(false);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [activeSearch]);
+
+  const filteredTutors = activeSearch.trim() ? semanticTutors : tutors;
 
   const visibleTutors = mapPhase === 'found' && mapTutors.length > 0 ? mapTutors : filteredTutors;
 
@@ -163,7 +187,10 @@ export default function ExploreClient({ mapboxAccessToken = "" }: ExploreClientP
         <div className="mt-4 text-xs text-muted-foreground">La lista se sincroniza con el mapa y resalta coincidencias por tema.</div>
 
         <div className="mt-4 max-h-[calc(100vh-20rem)] space-y-3 overflow-auto pr-1">
-          {visibleTutors.length === 0 ? (
+        {isSearching ? (<div className="rounded-xl border border-dashed border-border bg-[#ffffff] p-4 text-sm text-muted-foreground">
+              Buscando...
+            </div>
+          ): visibleTutors.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border bg-[#ffffff] p-4 text-sm text-muted-foreground">
               No hay resultados para esta búsqueda.
             </div>
