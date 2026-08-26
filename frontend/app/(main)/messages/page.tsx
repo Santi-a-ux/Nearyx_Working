@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { fetchApi } from "@/lib/api";
 import { appPanelClass, appPanelSoftClass } from "@/lib/surface-styles";
+import { useScreenReader } from "@/components/providers/ScreenReaderContext";
 
 /* ---------------- TYPES (sin cambios) ---------------- */
 
@@ -75,6 +76,7 @@ function MessagesPageContent() {
   const [bookingTime, setBookingTime] = useState("");
   const [bookingDurationMinutes, setBookingDurationMinutes] = useState(60);
   const [bookingSubmitting, setBookingSubmitting] = useState(false);
+  const { speak, stop } = useScreenReader();
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const receiverIdRef = useRef(initialReceiverId);
@@ -255,6 +257,8 @@ function MessagesPageContent() {
         ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
+            const messageContent = data.content || "";
+            const senderId = String(data.sender_id || "");
 
             setMessages((prev: Message[]) => [
               ...prev,
@@ -268,6 +272,9 @@ function MessagesPageContent() {
                 is_read: false,
               },
             ]);
+              if (senderId !== meId && messageContent) {
+              speak(`Nuevo mensaje de ${resolvedName}: ${messageContent}`);
+            }
           } catch (error) {
             console.error("Error parseando mensaje WS:", error);
           }
@@ -424,11 +431,17 @@ function MessagesPageContent() {
       }
 
       toast.success("Reserva creada");
+      speak(`Reserva con ${resolvedName} creada correctamente.`);
       setBookingDialogOpen(false);
       router.push("/bookings");
     } catch (error) {
       const err = error as Error;
       toast.error(err.message || "No se pudo crear la reserva");
+      speak(
+          err.message
+            ? `No se pudo crear la reserva. ${err.message}`
+            : "No se pudo crear la reserva."
+        );
     } finally {
       setBookingSubmitting(false);
     }
@@ -438,7 +451,20 @@ function MessagesPageContent() {
     <div className="flex h-full min-h-0 w-full overflow-hidden bg-[#ffffff]">
       <div className="flex h-full min-h-0 w-full gap-4 p-3 lg:p-4">
         <aside className={`flex min-h-0 w-[360px] flex-col overflow-hidden ${appPanelSoftClass}`}>
-          <div className="flex-shrink-0 border-b border-border px-5 py-4">
+          <div
+                tabIndex={0}
+                onFocus={() =>
+                  speak(
+                    `Sección Mensajes. Conversaciones. ${
+                      conversations.length
+                    } conversaciones disponibles. Estado de conexión: ${
+                      isConnected ? "en línea" : "desconectado"
+                    }.`
+                  )
+                }
+                onBlur={stop}
+                className="flex-shrink-0 rounded-md border-b border-border px-5 py-4 focus:outline-none focus:ring-2 focus:ring-primary"
+              >
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.26em] text-muted-foreground">
@@ -466,6 +492,9 @@ function MessagesPageContent() {
               <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Buscar conversaciones..."
+                aria-label="Buscar conversaciones"
+                onFocus={() => speak("Campo de búsqueda. Buscar conversaciones.")}
+                onBlur={stop}
                 className="h-11 rounded-xl border-border bg-[#ffffff] pl-10 text-foreground placeholder:text-muted-foreground focus-visible:ring-primary/20"
               />
             </div>
@@ -475,7 +504,13 @@ function MessagesPageContent() {
             <ScrollArea className="h-full">
               <div className="space-y-2 p-2.5">
                 {conversations.length === 0 ? (
-                  <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-border bg-[#ffffff] px-6 text-center">
+                  <div
+                  tabIndex={0}
+                  onFocus={() => speak("No hay conversaciones aún.")}
+                  onBlur={stop}
+                  aria-label="No hay conversaciones aún"
+                  className="flex h-40 items-center justify-center rounded-xl border border-dashed border-border bg-[#ffffff] px-6 text-center focus:outline-none focus:ring-2 focus:ring-primary"
+                >
                     <div className="space-y-2">
                       <AlertCircle className="mx-auto h-5 w-5 text-muted-foreground" />
                       <p className="text-sm text-muted-foreground">No hay conversaciones aún</p>
@@ -490,6 +525,21 @@ function MessagesPageContent() {
                       <button
                         key={c.id}
                         onClick={() => openConversation(partnerId)}
+                        onFocus={() =>
+                              speak(
+                                `Conversación con ${c.partnerName}. ${
+                                  c.last_message
+                                    ? `Último mensaje: ${c.last_message}.`
+                                    : "Sin mensajes."
+                                }`
+                              )
+                            }
+                            onBlur={stop}
+                            aria-label={`Conversación con ${c.partnerName}. ${
+                              c.last_message
+                                ? `Último mensaje: ${c.last_message}.`
+                                : "Sin mensajes."
+                            }`}
                         className={`group w-full rounded-xl border px-4 py-3 text-left transition-all duration-200 ${
                           isActive
                             ? "border-[#95C9FC] bg-[#C6E2FE] shadow-sm"
@@ -531,7 +581,20 @@ function MessagesPageContent() {
         </aside>
 
         <section className={`flex min-w-0 flex-1 flex-col overflow-hidden ${appPanelClass}`}>
-          <div className="flex-shrink-0 border-b border-border px-5 py-4">
+         <div
+            tabIndex={0}
+            onFocus={() =>
+              speak(
+                receiverId && isUuid(receiverId)
+                  ? `Chat con ${resolvedName}. ${
+                      conversationId ? "En línea." : "Selecciona un chat."
+                    }`
+                  : "No hay ninguna conversación seleccionada."
+              )
+            }
+            onBlur={stop}
+            className="flex-shrink-0 rounded-md border-b border-border px-5 py-4 focus:outline-none focus:ring-2 focus:ring-primary"
+          >
             <div className="flex items-center justify-between gap-4">
               <div className="flex min-w-0 items-center gap-3">
                 <UserAvatar name={resolvedName} size="mlg" avatarUrl={resolvedAvatar} />
@@ -553,12 +616,20 @@ function MessagesPageContent() {
                   <Link
                     href={`/profile/${receiverId}`}
                     className="inline-flex h-10 items-center rounded-full border border-[#2563EB]/20 bg-[#EEF6FF] px-4 text-sm font-semibold text-[#2563EB] transition-colors hover:bg-[#E0EFFF]"
+                    aria-label={`Ver perfil de ${resolvedName}`}
+                    onFocus={() => speak(`Botón. Ver perfil de ${resolvedName}.`)}
+                    onBlur={stop}
                   >
                     Ver perfil
                   </Link>
                   <Button
                     type="button"
                     onClick={openBookingDialog}
+                    aria-label={`Reservar una sesión con ${resolvedName}`}
+                    onFocus={() =>
+                      speak(`Botón. Reservar una sesión con ${resolvedName}.`)
+                    }
+                    onBlur={stop}
                     className="h-10 rounded-full bg-[#95C9FC] px-4 text-sm font-semibold text-[#10314F] hover:bg-[#7FB8F5]"
                   >
                     <CalendarDays className="mr-2 h-4 w-4" />
@@ -574,7 +645,13 @@ function MessagesPageContent() {
             <ScrollArea ref={scrollRef} className="h-full pr-2">
               <div className="flex flex-col gap-4">
                 {messages.length === 0 ? (
-                  <div className="flex min-h-[24rem] items-center justify-center rounded-xl border border-dashed border-border bg-[#F8FBFF] px-6 text-center">
+                  <div
+                  tabIndex={0}
+                  onFocus={() => speak("No hay mensajes. Inicia una conversación.")}
+                  onBlur={stop}
+                  aria-label="No hay mensajes. Inicia una conversación."
+                  className="flex min-h-[24rem] items-center justify-center rounded-xl border border-dashed border-border bg-[#F8FBFF] px-6 text-center focus:outline-none focus:ring-2 focus:ring-primary"
+                >
                     <p className="text-sm text-muted-foreground">Inicia una conversación</p>
                   </div>
                 ) : (
@@ -588,7 +665,17 @@ function MessagesPageContent() {
                     return (
                       <div
                         key={m.id}
-                        className={`flex items-end gap-3 ${isMe ? "flex-row-reverse" : ""}`}
+                        tabIndex={0}
+                        onFocus={() =>
+                          speak(
+                            `${isMe ? "Tú" : resolvedName} dijo: ${m.content}. Hora: ${time}.`
+                          )
+                        }
+                        onBlur={stop}
+                        aria-label={`${isMe ? "Tú" : resolvedName} dijo: ${m.content}. Hora: ${time}.`}
+                        className={`flex items-end gap-3 rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${
+                          isMe ? "flex-row-reverse" : ""
+                        }`}
                       >
                         {!isMe && (
                           <UserAvatar name={resolvedName} size="sm" avatarUrl={resolvedAvatar} />
@@ -623,57 +710,135 @@ function MessagesPageContent() {
           <div className="flex-shrink-0 border-t border-border px-4 py-4 lg:px-5">
             <form className="flex items-end gap-3" onSubmit={handleSendMessage}>
               <Input
-                value={newMessage}
-                onChange={(event: ChangeEvent<HTMLInputElement>) => setNewMessage(event.target.value)}
-                className="h-12 rounded-xl border-border bg-[#F8FBFF] px-4 text-foreground placeholder:text-muted-foreground focus-visible:ring-primary/20"
-                placeholder="Escribe un mensaje..."
+              value={newMessage}
+              onChange={(event) => setNewMessage(event.target.value)}
+              onFocus={() => speak("Campo de mensaje. Escribe un mensaje.")}
+              onBlur={stop}
+              aria-label="Escribe un mensaje"
+              className="h-12 rounded-xl border-border bg-[#F8FBFF] px-4 text-foreground placeholder:text-muted-foreground focus-visible:ring-primary/20"
+            />
+            <Button
+              type="submit"
+              aria-label="Enviar mensaje"
+              onFocus={() => speak("Botón. Enviar mensaje.")}
+              onBlur={stop}
+              className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-[#CCFBF1] text-[#0F766E] transition-all hover:bg-[#B2F5EA]"
+            >
+                <Send
+                aria-hidden="true"
+                className="h-4 w-4"
               />
-              <Button
-                type="submit"
-                className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-[#CCFBF1] text-[#0F766E] transition-all hover:bg-[#B2F5EA]"
-              >
-                <Send className="h-4 w-4" />
-              </Button>
+             </Button>
             </form>
           </div>
         </section>
       </div>
 
       <Dialog open={bookingDialogOpen} onOpenChange={setBookingDialogOpen}>
-        <DialogContent className="w-[min(92vw,460px)]">
+        <DialogContent className="w-[min(92vw,460px)]
+        "
+        >
           <DialogHeader>
-            <DialogTitle>Crear reserva</DialogTitle>
+            <DialogTitle
+              onFocus={() =>
+                speak(`Crear reserva con ${resolvedName}.`)
+              }
+              tabIndex={0}
+            >
+              Crear reserva
+            </DialogTitle>
           </DialogHeader>
 
           <div className="grid gap-4 py-2">
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-foreground" htmlFor="booking-date">Fecha</label>
-              <Input id="booking-date" type="date" value={bookingDate} onChange={(event) => setBookingDate(event.target.value)} />
+              <label
+              className="text-sm font-medium text-foreground"
+              htmlFor="booking-date"
+            >
+              Fecha
+            </label>
+
+            <Input
+              id="booking-date"
+              type="date"
+              aria-label="Fecha de la reserva"
+              value={bookingDate}
+              onChange={(event) => setBookingDate(event.target.value)}
+              onFocus={() =>
+                speak(
+                  bookingDate
+                    ? `Fecha de la reserva: ${bookingDate}.`
+                    : "Selecciona la fecha de la reserva."
+                )
+              }
+              onBlur={stop}
+            />
             </div>
 
             <div className="grid gap-2">
               <label className="text-sm font-medium text-foreground" htmlFor="booking-time">Hora</label>
-              <Input id="booking-time" type="time" value={bookingTime} onChange={(event) => setBookingTime(event.target.value)} />
+              <Input
+                id="booking-time"
+                type="time"
+                aria-label="Hora de la reserva"
+                value={bookingTime}
+                onChange={(event) => setBookingTime(event.target.value)}
+                onFocus={() =>
+                  speak(
+                    bookingTime
+                      ? `Hora de la reserva: ${bookingTime}.`
+                      : "Selecciona la hora de la reserva."
+                  )
+                }
+                onBlur={stop}
+              />
             </div>
 
             <div className="grid gap-2">
               <label className="text-sm font-medium text-foreground" htmlFor="booking-duration">Duración en minutos</label>
-              <Input
+               <Input
                 id="booking-duration"
                 type="number"
                 min={30}
                 step={15}
+                aria-label="Duración de la reserva en minutos"
                 value={bookingDurationMinutes}
-                onChange={(event) => setBookingDurationMinutes(Number(event.target.value) || 60)}
+                onChange={(event) =>
+                  setBookingDurationMinutes(Number(event.target.value) || 60)
+                }
+                onFocus={() =>
+                  speak(
+                    `Duración de la reserva: ${bookingDurationMinutes} minutos.`
+                  )
+                }
+                onBlur={stop}
               />
             </div>
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setBookingDialogOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setBookingDialogOpen(false)}
+              onFocus={() => speak("Botón. Cancelar reserva.")}
+              onBlur={stop}
+            >
               Cancelar
             </Button>
-            <Button type="button" onClick={handleCreateBooking} disabled={bookingSubmitting}>
+            <Button
+              type="button"
+              onClick={handleCreateBooking}
+              disabled={bookingSubmitting}
+              onFocus={() =>
+                speak(
+                  bookingSubmitting
+                    ? "Creando reserva."
+                    : "Botón. Confirmar reserva."
+                )
+              }
+              onBlur={stop}
+            >
               {bookingSubmitting ? "Creando..." : "Confirmar reserva"}
             </Button>
           </DialogFooter>
