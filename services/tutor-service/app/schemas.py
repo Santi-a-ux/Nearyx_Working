@@ -36,6 +36,26 @@ class TutorListOut(BaseModel):
     total: int
 
 
+class NetworkRecommendation(BaseModel):
+    user_id: UUID4
+    display_name: Optional[str] = None
+    bio: Optional[str] = None
+    avatar_url: Optional[str] = None
+    role: Optional[str] = None
+    specialties: List[str] = []
+    categories: List[str] = []
+    common_topics: List[str] = []
+    score: float
+    connection_count: int = 1
+    reason: str
+
+
+class NetworkRecommendationsOut(BaseModel):
+    user_id: UUID4
+    people: List[NetworkRecommendation] = []
+    tutors: List[NetworkRecommendation] = []
+
+
 class TutorRatingIn(BaseModel):
     rating: int = Field(ge=1, le=5)
     comment: Optional[str] = Field(default=None, max_length=500)
