@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 
 /* ============================================================
    TYPES — mirror the API response shape exactly
@@ -99,6 +100,7 @@ export default function NetworkGraphBackground({
   fallbackData,
   verticalOffset = 160,
 }: NetworkGraphBackgroundProps) {
+  const router = useRouter();
   const starsCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const graphCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
@@ -111,13 +113,16 @@ export default function NetworkGraphBackground({
   const mouseRef = useRef({ x: -9999, y: -9999 });
   const sizeRef = useRef({ w: 0, h: 0, dpr: 1 });
   const offsetRef = useRef(verticalOffset);
-  offsetRef.current = verticalOffset;
   const rafRef = useRef<number | null>(null);
 
   const [status, setStatus] = useState("Cargando red…");
 
   const url =
     endpoint ?? `/api/tutors/recommendations/${encodeURIComponent(userId)}`;
+
+  useEffect(() => {
+    offsetRef.current = verticalOffset;
+  }, [verticalOffset]);
 
   /* ---------- helpers that read/write refs, defined once ---------- */
 
@@ -286,11 +291,32 @@ export default function NetworkGraphBackground({
     }
     load();
 
+    const onNetworkUpdated = () => {
+      void load();
+    };
+    window.addEventListener("nearyx:network-updated", onNetworkUpdated);
+
     return () => {
       cancelled = true;
+      window.removeEventListener("nearyx:network-updated", onNetworkUpdated);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url]);
+
+  useEffect(() => {
+    const onClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("a, button, input, textarea, select, [role='button']")) return;
+
+      const node = findNodeAt(event.clientX, event.clientY);
+      if (!node || node.role === "self") return;
+
+      router.push(`/profile/${encodeURIComponent(node.id)}`);
+    };
+
+    window.addEventListener("click", onClick);
+    return () => window.removeEventListener("click", onClick);
+  }, [router]);
 
   /* ---------- effect: mouse tracking (window-level so it never blocks the page) ---------- */
   useEffect(() => {
@@ -578,7 +604,7 @@ export default function NetworkGraphBackground({
       />
       <canvas
         ref={graphCanvasRef}
-        style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }}
+        style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none", cursor: "pointer" }}
       />
       <div
         style={{

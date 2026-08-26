@@ -360,6 +360,7 @@ function MessagesPageContent() {
     };
 
     activeSocket.send(JSON.stringify(payload));
+    window.dispatchEvent(new Event("nearyx:network-updated"));
 
     const optimisticMessage: Message = {
       id: Math.random().toString(),
