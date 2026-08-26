@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { fetchApi } from "@/lib/api";
 import { buildTutorOccupationLabel,  type TutorSearchRecord } from "@/lib/tutor-search";
 import { useScreenReader } from "@/components/providers/ScreenReaderContext";
-
+import { FEATURED_TOPICS } from "@/lib/constants";
 
 interface Tutor {
   id?: string;
