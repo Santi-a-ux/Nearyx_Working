@@ -8,6 +8,7 @@ import { EditProfileDialog } from "@/components/profile/edit-profile-dialog";
 import { ProfileExpertActions } from "@/components/profile/profile-expert-actions";
 import { VerificationStatusActions } from "@/components/profile/verification-status-actions";
 import TutorPaymentSettings from "@/components/profile/tutor-payment-settings";
+import TutorRateSettings from "@/components/profile/tutor-rate-settings";
 import { ProfileNetwork, type NetworkRecommendations } from "@/components/profile/profile-network";
 import NetworkGraphBackground from "@/components/NetworkGraphBackground";
 import { appCardClass, appCardInnerClass, appCardSoftClass } from "@/lib/surface-styles";
@@ -185,6 +186,7 @@ export default async function MyProfilePage() {
               <div className={`${appCardInnerClass} bg-white/70`}>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Tarifa por hora</p>
                 <p className="mt-2 text-lg font-bold text-[#10314F]">{formatCOP(tutorProfile.hourly_rate || 0)}</p>
+                <TutorRateSettings initial={tutorProfile.hourly_rate} />
               </div>
               <div className={`${appCardInnerClass} bg-white/70`}>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Años de experiencia</p>
