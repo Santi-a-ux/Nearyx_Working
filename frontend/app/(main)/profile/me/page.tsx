@@ -13,6 +13,7 @@ import NetworkGraphBackground from "@/components/NetworkGraphBackground";
 import { appCardClass, appCardInnerClass, appCardSoftClass } from "@/lib/surface-styles";
 import { normalizeVerificationStatus, type VerificationRequest } from "@/lib/verification";
 import { ScreenReaderSection } from "@/components/ui/screen-reader-section";
+import { formatCOP } from "@/lib/currency";
 
 interface UserProfile {
   user_id: string;
@@ -119,7 +120,7 @@ export default async function MyProfilePage() {
               {!tutorProfile && <ProfileExpertActions />}
             </div>
           </div>
-        </ScreenReaderSection>
+        </div>
 
         <ScreenReaderSection
           text={`Información de la cuenta. Correo: ${
@@ -162,7 +163,7 @@ export default async function MyProfilePage() {
           <p className="mt-3 text-sm text-muted-foreground">
             Usa el botón &laquo;Corregir y reenviar&raquo; junto a tu nombre para actualizar la solicitud.
           </p>
-        </ScreenReaderSection>
+        </div>
       )}
 
       <ProfileNetwork network={network} />
@@ -183,7 +184,7 @@ export default async function MyProfilePage() {
             <div className="mt-5 grid gap-3 md:grid-cols-2">
               <div className={`${appCardInnerClass} bg-white/70`}>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Tarifa por hora</p>
-                <p className="mt-2 text-lg font-bold text-[#10314F]">${tutorProfile.hourly_rate || 0}</p>
+                <p className="mt-2 text-lg font-bold text-[#10314F]">{formatCOP(tutorProfile.hourly_rate || 0)}</p>
               </div>
               <div className={`${appCardInnerClass} bg-white/70`}>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Años de experiencia</p>
@@ -214,7 +215,7 @@ export default async function MyProfilePage() {
               <TutorPaymentSettings initial={tutorProfile.preferred_payment_method} />
             </div>
           </div>
-        </ScreenReaderSection>
+        </div>
       ) : (
         <div className={`mt-6 ${appCardSoftClass} border-dashed bg-white/75 backdrop-blur-md p-6`}>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -225,7 +226,7 @@ export default async function MyProfilePage() {
             </div>
             <ProfileExpertActions triggerLabel="Completar perfil de experto" />
           </div>
-        </ScreenReaderSection>
+        </div>
       )}
     </div>
   );

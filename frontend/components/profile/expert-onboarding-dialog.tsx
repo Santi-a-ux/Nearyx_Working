@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { formatCOP } from "@/lib/currency";
 
 const STEP_LABELS = [
   "Cuéntanos quién eres y captura tu ubicación.",
@@ -233,10 +234,10 @@ export function ExpertOnboardingDialog({
                     name="hourly_rate"
                     type="number"
                     min="0"
-                    step="0.01"
+                    step="1000"
                     value={formData.hourly_rate}
                     onChange={handleChange}
-                    placeholder="15.00"
+                    placeholder="30000"
                     className="h-11 rounded-xl border-border bg-[#F8FBFF]"
                   />
                 </div>
@@ -256,7 +257,7 @@ export function ExpertOnboardingDialog({
                   </div>
                   <div>
                     <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">Tarifa</p>
-                    <p className="mt-2 text-sm leading-6 text-foreground">${formData.hourly_rate || "0"}/hora</p>
+                    <p className="mt-2 text-sm leading-6 text-foreground">{formatCOP(formData.hourly_rate || 0)}/hora</p>
                   </div>
                 </div>
                 <div

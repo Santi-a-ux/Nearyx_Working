@@ -26,7 +26,7 @@ SERVICES = {
     "bookings": "http://booking-service:8007",
 }
 
-client = httpx.AsyncClient(timeout=10.0)
+client = httpx.AsyncClient(timeout=60.0)
 
 @app.on_event("shutdown")
 async def shutdown_event():

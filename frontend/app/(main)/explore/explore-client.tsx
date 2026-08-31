@@ -12,7 +12,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { fetchApi } from "@/lib/api";
 import { buildTutorOccupationLabel,  type TutorSearchRecord } from "@/lib/tutor-search";
 import { useScreenReader } from "@/components/providers/ScreenReaderContext";
-import { FEATURED_TOPICS } from "@/lib/constants";
 
 interface Tutor {
   id?: string;
@@ -162,29 +161,7 @@ export default function ExploreClient({ mapboxAccessToken = "" }: ExploreClientP
           />
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          {FEATURED_TOPICS.slice(0, 6).map((topic) => (
-             <Button
-              key={topic}
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setSearchValue(topic);
-                setActiveSearch(topic);
-                speak(`Mostrando expertos de ${topic}.`);
-              }}
-              onMouseEnter={() => speak(`Tema destacado: ${topic}.`)}
-              onFocus={() => speak(`Tema destacado: ${topic}.`)}
-              onMouseLeave={stop}
-              onBlur={stop}
-              className="h-8 rounded-full border-border bg-[#95C9FC] px-3 text-xs font-bold text-[#ffffff] transition-colors hover:bg-white"
-            >
-              {topic}
-            </Button>
-          ))}
-        </div>
 
-        <div className="mt-4 text-xs text-muted-foreground">La lista se sincroniza con el mapa y resalta coincidencias por tema.</div>
 
         <div className="mt-4 max-h-[calc(100vh-20rem)] space-y-3 overflow-auto pr-1">
         {isSearching ? (<div className="rounded-xl border border-dashed border-border bg-[#ffffff] p-4 text-sm text-muted-foreground">

@@ -5,6 +5,7 @@ import { UserAvatar } from "@/components/user-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Star } from "lucide-react";
+import { formatCOP } from "@/lib/currency";
 
 export interface TutorCardProps {
   id: string;
@@ -59,7 +60,7 @@ export function TutorCard({
         </div>
       </div>
       <div className="flex items-center justify-between border-t border-white/5 bg-white/3 p-3">
-        <div className="font-semibold text-white">${hourly_rate || 20} <span className="font-normal text-white/50">/ hr</span></div>
+        <div className="font-semibold text-white">{formatCOP(hourly_rate || 20000)} <span className="font-normal text-white/50">/ hr</span></div>
         <div className="flex gap-2">
           <Link href={`/profile/${user_id}`}>
             <Button variant="outline" size="sm" className="border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white">
