@@ -18,6 +18,7 @@ import {
 } from "@/lib/verification";
 import { Clock, MapPin, MessageCircle, Star } from "lucide-react";
 import {ScreenReaderSection} from "@/components/ui/screen-reader-section";
+import { formatCOP } from "@/lib/currency";
 interface TutorProfile {
   user_id: string;
   specialties?: string[];
@@ -144,7 +145,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
 
         <ScreenReaderSection
           text={`Información del experto. Tarifa: ${
-            tutor.hourly_rate || 0
+            formatCOP(tutor.hourly_rate || 0)
           } pesos por hora. Experiencia: ${
             tutor.years_experience ?? 1
           } años. Ubicación: ${
@@ -156,7 +157,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
             <div className={appCardInnerClass}>
               <Clock className="h-4 w-4 text-[#2563EB]" />
               <p className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Tarifa</p>
-              <p className="mt-2 text-lg font-bold text-[#10314F]">${tutor.hourly_rate || 0}</p>
+              <p className="mt-2 text-lg font-bold text-[#10314F]">{formatCOP(tutor.hourly_rate || 0)}</p>
             </div>
             <div className={appCardInnerClass}>
               <Star className="h-4 w-4 text-[#2563EB]" />

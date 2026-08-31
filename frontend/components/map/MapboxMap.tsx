@@ -258,7 +258,7 @@ export default function MapboxMap({ accessToken = '', topicFilter, searchResults
             </div>
           </div>
           <p style="font-size:11px;color:#666;margin:6px 0">${tutor.specialties?.slice(0, 2).join(' · ') ?? 'Experto'}</p>
-          <div style="font-size:12px;color:#111;font-weight:600;margin-bottom:10px">$${tutor.hourly_rate ?? 20}/hr</div>
+          <div style="font-size:12px;color:#111;font-weight:600;margin-bottom:10px">$${Number(tutor.hourly_rate ?? 0).toLocaleString('es-CO')}/hr</div>
           <div style="display:flex;gap:6px">
             <a href="/profile/${tutor.user_id}" style="flex:1;text-align:center;padding:6px;border:1px solid #e5e7eb;border-radius:8px;font-size:11px;text-decoration:none;color:#374151;font-weight:500">Ver perfil</a>
             <a href="/messages?userId=${tutor.user_id}" style="flex:1;text-align:center;padding:6px;background:#2563EB;color:white;border-radius:8px;font-size:11px;text-decoration:none;font-weight:600">Contactar</a>

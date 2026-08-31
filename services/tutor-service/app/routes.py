@@ -262,7 +262,7 @@ async def list_tutors(
 
         # Umbral de relevancia: descarta matches demasiado lejanos semánticamente
         # (0.0 = idéntico, 1.0 = sin relación). Ajusta este valor probando resultados reales.
-        fetch_stmt = fetch_stmt.where(distance_expr < 0.6)
+        fetch_stmt = fetch_stmt.where(distance_expr < 0.35)
         fetch_stmt = fetch_stmt.order_by(distance_expr).limit(limit).offset(offset)
 
         result = await db.execute(fetch_stmt)
