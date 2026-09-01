@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Search } from "lucide-react";
 
 import { UserAvatar } from "@/components/user-avatar";
@@ -115,7 +115,10 @@ export default function ExploreClient({ mapboxAccessToken = "" }: ExploreClientP
     };
   }, [activeSearch]);
 
-  const filteredTutors = activeSearch.trim() ? semanticTutors : tutors;
+  const filteredTutors = useMemo(
+    () => (activeSearch.trim() ? semanticTutors : tutors),
+    [activeSearch, semanticTutors, tutors]
+  );
 
   const visibleTutors = mapPhase === 'found' && mapTutors.length > 0 ? mapTutors : filteredTutors;
 
@@ -265,7 +268,7 @@ export default function ExploreClient({ mapboxAccessToken = "" }: ExploreClientP
           <MapboxMap
             accessToken={mapboxAccessToken}
             topicFilter={activeSearch}
-            searchResults={visibleTutors}
+            searchResults={filteredTutors}
             onTutorsFound={(nextTutors, phase) => {
               setMapTutors(nextTutors);
               setMapPhase(phase);

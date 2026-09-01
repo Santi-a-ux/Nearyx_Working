@@ -18,7 +18,6 @@ from sentence_transformers import SentenceTransformer
 
 _MODEL_NAME = "intfloat/multilingual-e5-small"
 
-
 @lru_cache(maxsize=1)
 def _get_model() -> SentenceTransformer:
     # Se carga una sola vez por proceso (lazy init) y se reutiliza en cada request.

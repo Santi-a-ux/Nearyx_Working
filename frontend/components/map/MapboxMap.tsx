@@ -360,7 +360,7 @@ export default function MapboxMap({ accessToken = '', topicFilter, searchResults
   useEffect(() => {
     if (!map.current || !map.current.loaded()) return;
     void searchTutorsRef.current(userLocationRef.current);
-  }, [topicFilter]);
+  }, [topicFilter, searchResults]);
 
   useEffect(() => {
     if (!hasMapboxToken || map.current || !mapContainer.current) return;

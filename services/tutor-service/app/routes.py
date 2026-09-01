@@ -271,10 +271,14 @@ async def list_tutors(
             .where(TutorProfile.embedding.is_not(None))
             .scalar_subquery()
         )
+
         relative_margin = 0.02
         absolute_ceiling = 0.16
+        min_quality_threshold = 0.12  # <-- nuevo: si el mejor resultado no baja de esto, no hay match real
+
         fetch_stmt = fetch_stmt.where(distance_expr < absolute_ceiling)
         fetch_stmt = fetch_stmt.where(distance_expr <= best_distance_subq + relative_margin)
+        fetch_stmt = fetch_stmt.where(best_distance_subq < min_quality_threshold)  # <-- gate de calidad
         fetch_stmt = fetch_stmt.order_by(distance_expr).limit(limit).offset(offset)
 
         result = await db.execute(fetch_stmt)

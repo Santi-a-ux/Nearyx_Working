@@ -84,163 +84,177 @@ export default async function MyProfilePage() {
     <div className="relative z-10 mx-auto max-w-4xl px-4 py-6 lg:py-8">
       {userProfile?.user_id && (
         <div className="pointer-events-none fixed inset-0 z-[-1] overflow-hidden">
+          {/* Always full opacity — this is the background layer */}
           <NetworkGraphBackground userId={userProfile.user_id} />
         </div>
       )}
-      <div className={`overflow-hidden ${appCardClass} bg-white/85 backdrop-blur-md`}>
-        <div className="border-b border-border/60 bg-[linear-gradient(180deg,#EEF6FF_0%,#F8FBFF_100%)]/85 px-6 py-6 lg:px-8 lg:py-7">
 
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6">
-              <UserAvatar name={resolvedDisplayName} size="profile" avatarUrl={userProfile?.avatar_url} />
-
-              <div className="min-w-0 max-w-2xl">
-                <div className="flex flex-wrap items-center gap-3">
-                  <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#10314F]/55">Mi perfil</p>
-                  {tutorProfile && (
-                    <VerificationStatusActions
-                      status={tutorProfile.verification_status}
-                      request={verificationRequest}
-                    />
-                  )}
-                </div>
-                <h1 className="mt-2 text-3xl font-bold tracking-tight text-[#10314F]">{resolvedDisplayName}</h1>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">{resolvedLocation}</p>
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-foreground/80">{resolvedBio}</p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <EditProfileDialog
-                initialData={{
-                  display_name: resolvedDisplayName,
-                  bio: userProfile?.bio,
-                  location_name: userProfile?.location_name,
-                }}
-              />
-              {!tutorProfile && <ProfileExpertActions />}
-            </div>
-          </div>
-        </div>
-
-        <ScreenReaderSection
-          text={`Información de la cuenta. Correo: ${
-            authUser?.email || "No disponible"
-          }. Rol: ${
-            authUser?.role === "tutor"
-              ? "Experto"
-              : authUser?.role === "student"
-                ? "Estudiante"
-                : authUser?.role || "No disponible"
-          }. Ubicación: ${resolvedLocation}.`}
-          className="px-6 py-6 lg:px-8"
-        >
-          <div className="grid gap-3 md:grid-cols-3">
-            <div className={`${appCardInnerClass} bg-white/70`}>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Correo</p>
-              <p className="mt-2 break-words text-sm font-semibold text-[#10314F]">{authUser?.email || "No disponible"}</p>
-            </div>
-            <div className={`${appCardInnerClass} bg-white/70`}>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Rol</p>
-              <p className="mt-2 text-sm font-semibold text-[#10314F]">
-                {authUser?.role === "tutor" ? "Experto" : authUser?.role === "student" ? "Estudiante" : authUser?.role || "No disponible"}
-              </p>
-            </div>
-            <div className={`${appCardInnerClass} bg-white/70`}>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Ubicación</p>
-              <p className="mt-2 text-sm font-semibold text-[#10314F]">{resolvedLocation}</p>
-            </div>
-          </div>
-        </ScreenReaderSection>
-      </div>
-
-      {rejectionNotes && (
-        <div className={`mt-6 ${appCardClass} border-semantic-error/30 bg-white/85 backdrop-blur-md p-6`}>
-          <p className="text-xs font-bold uppercase tracking-[0.24em] text-semantic-error">
-            Verificación rechazada
-          </p>
-          <h2 className="mt-2 text-xl font-bold text-[#10314F]">Revisa lo que falta y vuelve a enviar</h2>
-          <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-foreground/80">{rejectionNotes}</p>
-          <p className="mt-3 text-sm text-muted-foreground">
-            Usa el botón &laquo;Corregir y reenviar&raquo; junto a tu nombre para actualizar la solicitud.
-          </p>
-        </div>
-      )}
+      {/* Pure CSS toggle: checkbox drives everything, no JS/state needed */}
+      <input type="checkbox" id="network-toggle" className="peer hidden" />
 
       {network && network.edges.length > 0 && (
-        <div className="mt-6 flex items-center justify-between rounded-2xl border border-border bg-white/85 p-5 backdrop-blur-md">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#10314F]/55">Red de contactos</p>
-            <h2 className="mt-1 text-lg font-bold text-[#10314F]">Tu red de conexiones</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Visualiza tu grafo completo: quién conoces directamente y quién llega a través de tus contactos.</p>
-          </div>
-          <Link href="/network" className={`${buttonVariants({ variant: "default" })} shrink-0`}>
-            Ver grafo completo
-          </Link>
-        </div>
+        <label
+          htmlFor="network-toggle"
+          className={`${buttonVariants({ variant: "default" })} fixed bottom-6 left-1/2 -translate-x-1/2 z-50 shadow-lg cursor-pointer select-none`}
+        >
+          <span className="peer-checked:hidden">Ver grafo completo</span>
+          <span className="hidden peer-checked:inline">Ocultar grafo</span>
+        </label>
       )}
 
-      {tutorProfile ? (
-        <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className={`${appCardClass} bg-white/85 backdrop-blur-md p-6`}>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#10314F]/55">Perfil de experto</p>
-                <h2 className="mt-2 text-xl font-bold text-[#10314F]">Disponibilidad y habilidades</h2>
-              </div>
-              <Badge className={tutorProfile.is_available ? "bg-[#CCFBF1] text-[#0F766E]" : "bg-muted text-muted-foreground"}>
-                {tutorProfile.is_available ? "Disponible" : "No disponible"}
-              </Badge>
-            </div>
+      {/* Everything below fades out together when the checkbox is checked */}
+      <div className="peer-checked:opacity-0 peer-checked:pointer-events-none opacity-100 transition-opacity duration-300">
+        <div className={`overflow-hidden ${appCardClass} bg-white/85 backdrop-blur-md`}>
+          <div className="border-b border-border/60 bg-[linear-gradient(180deg,#EEF6FF_0%,#F8FBFF_100%)]/85 px-6 py-6 lg:px-8 lg:py-7">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6">
+                <UserAvatar name={resolvedDisplayName} size="profile" avatarUrl={userProfile?.avatar_url} />
 
-            <div className="mt-5 grid gap-3 md:grid-cols-2">
-              <div className={`${appCardInnerClass} bg-white/70`}>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Tarifa por hora</p>
-                <p className="mt-2 text-lg font-bold text-[#10314F]">{formatCOP(tutorProfile.hourly_rate || 0)}</p>
-                <TutorRateSettings initial={tutorProfile.hourly_rate} />
+                <div className="min-w-0 max-w-2xl">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#10314F]/55">Mi perfil</p>
+                    {tutorProfile && (
+                      <VerificationStatusActions
+                        status={tutorProfile.verification_status}
+                        request={verificationRequest}
+                      />
+                    )}
+                  </div>
+                  <h1 className="mt-2 text-3xl font-bold tracking-tight text-[#10314F]">{resolvedDisplayName}</h1>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{resolvedLocation}</p>
+                  <p className="mt-3 max-w-2xl text-sm leading-6 text-foreground/80">{resolvedBio}</p>
+                </div>
               </div>
-              <div className={`${appCardInnerClass} bg-white/70`}>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Años de experiencia</p>
-                <p className="mt-2 text-lg font-bold text-[#10314F]">{tutorProfile.years_experience ?? 1}</p>
-              </div>
-            </div>
 
-            <div className="mt-5 flex flex-wrap gap-2">
-              {skills.length > 0 ? (
-                skills.map((skill, index) => (
-                  <Badge key={`${skill}-${index}`} variant="secondary" className="rounded-full border border-[#2563EB]/20 bg-[#EEF6FF] px-3 py-1 text-[#2563EB]">
-                    {skill}
-                  </Badge>
-                ))
-              ) : (
-                <p className="text-sm text-muted-foreground">Todavía no has agregado especialidades.</p>
-              )}
+              <div className="flex flex-wrap gap-3">
+                <EditProfileDialog
+                  initialData={{
+                    display_name: resolvedDisplayName,
+                    bio: userProfile?.bio,
+                    location_name: userProfile?.location_name,
+                  }}
+                />
+                {!tutorProfile && <ProfileExpertActions />}
+              </div>
             </div>
           </div>
 
-          <div className={`${appCardSoftClass} bg-white/75 backdrop-blur-md p-6`}>
-            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#10314F]/55">Cobros</p>
-            <h2 className="mt-2 text-xl font-bold text-[#10314F]">Método de pago</h2>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">
-              Configura el método que usarás para recibir pagos y mantener tu perfil listo para clases.
+          <ScreenReaderSection
+            text={`Información de la cuenta. Correo: ${
+              authUser?.email || "No disponible"
+            }. Rol: ${
+              authUser?.role === "tutor"
+                ? "Experto"
+                : authUser?.role === "student"
+                  ? "Estudiante"
+                  : authUser?.role || "No disponible"
+            }. Ubicación: ${resolvedLocation}.`}
+            className="px-6 py-6 lg:px-8"
+          >
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className={`${appCardInnerClass} bg-white/70`}>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Correo</p>
+                <p className="mt-2 break-words text-sm font-semibold text-[#10314F]">{authUser?.email || "No disponible"}</p>
+              </div>
+              <div className={`${appCardInnerClass} bg-white/70`}>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Rol</p>
+                <p className="mt-2 text-sm font-semibold text-[#10314F]">
+                  {authUser?.role === "tutor" ? "Experto" : authUser?.role === "student" ? "Estudiante" : authUser?.role || "No disponible"}
+                </p>
+              </div>
+              <div className={`${appCardInnerClass} bg-white/70`}>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Ubicación</p>
+                <p className="mt-2 text-sm font-semibold text-[#10314F]">{resolvedLocation}</p>
+              </div>
+            </div>
+          </ScreenReaderSection>
+        </div>
+
+        {rejectionNotes && (
+          <div className={`mt-6 ${appCardClass} border-semantic-error/30 bg-white/85 backdrop-blur-md p-6`}>
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-semantic-error">
+              Verificación rechazada
             </p>
-            <div className={`mt-5 ${appCardInnerClass} bg-white/85`}>
-              <TutorPaymentSettings initial={tutorProfile.preferred_payment_method} />
-            </div>
+            <h2 className="mt-2 text-xl font-bold text-[#10314F]">Revisa lo que falta y vuelve a enviar</h2>
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-foreground/80">{rejectionNotes}</p>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Usa el botón &laquo;Corregir y reenviar&raquo; junto a tu nombre para actualizar la solicitud.
+            </p>
           </div>
-        </div>
-      ) : (
-        <div className={`mt-6 ${appCardSoftClass} border-dashed bg-white/75 backdrop-blur-md p-6`}>
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        )}
+
+        {network && network.edges.length > 0 && (
+          <div className="mt-6 flex items-center justify-between rounded-2xl border border-border bg-white/85 p-5 backdrop-blur-md">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.24em] text-muted-foreground">Perfil de experto</p>
-              <h2 className="mt-2 text-xl font-bold text-foreground">Todavía no tienes un perfil de experto</h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Completa tu onboarding para aparecer en la búsqueda, mostrar tarifas y recibir mensajes.</p>
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#10314F]/55">Red de contactos</p>
+              <h2 className="mt-1 text-lg font-bold text-[#10314F]">Tu red de conexiones</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Visualiza tu grafo completo: quién conoces directamente y quién llega a través de tus contactos.</p>
             </div>
-            <ProfileExpertActions triggerLabel="Completar perfil de experto" />
           </div>
-        </div>
-      )}
+        )}
+
+        {tutorProfile ? (
+          <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+            <div className={`${appCardClass} bg-white/85 backdrop-blur-md p-6`}>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#10314F]/55">Perfil de experto</p>
+                  <h2 className="mt-2 text-xl font-bold text-[#10314F]">Disponibilidad y habilidades</h2>
+                </div>
+                <Badge className={tutorProfile.is_available ? "bg-[#CCFBF1] text-[#0F766E]" : "bg-muted text-muted-foreground"}>
+                  {tutorProfile.is_available ? "Disponible" : "No disponible"}
+                </Badge>
+              </div>
+
+              <div className="mt-5 grid gap-3 md:grid-cols-2">
+                <div className={`${appCardInnerClass} bg-white/70`}>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Tarifa por hora</p>
+                  <p className="mt-2 text-lg font-bold text-[#10314F]">{formatCOP(tutorProfile.hourly_rate || 0)}</p>
+                  <TutorRateSettings initial={tutorProfile.hourly_rate} />
+                </div>
+                <div className={`${appCardInnerClass} bg-white/70`}>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Años de experiencia</p>
+                  <p className="mt-2 text-lg font-bold text-[#10314F]">{tutorProfile.years_experience ?? 1}</p>
+                </div>
+              </div>
+
+              <div className="mt-5 flex flex-wrap gap-2">
+                {skills.length > 0 ? (
+                  skills.map((skill, index) => (
+                    <Badge key={`${skill}-${index}`} variant="secondary" className="rounded-full border border-[#2563EB]/20 bg-[#EEF6FF] px-3 py-1 text-[#2563EB]">
+                      {skill}
+                    </Badge>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">Todavía no has agregado especialidades.</p>
+                )}
+              </div>
+            </div>
+
+            <div className={`${appCardSoftClass} bg-white/75 backdrop-blur-md p-6`}>
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#10314F]/55">Cobros</p>
+              <h2 className="mt-2 text-xl font-bold text-[#10314F]">Método de pago</h2>
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                Configura el método que usarás para recibir pagos y mantener tu perfil listo para clases.
+              </p>
+              <div className={`mt-5 ${appCardInnerClass} bg-white/85`}>
+                <TutorPaymentSettings initial={tutorProfile.preferred_payment_method} />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className={`mt-6 ${appCardSoftClass} border-dashed bg-white/75 backdrop-blur-md p-6`}>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.24em] text-muted-foreground">Perfil de experto</p>
+                <h2 className="mt-2 text-xl font-bold text-foreground">Todavía no tienes un perfil de experto</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Completa tu onboarding para aparecer en la búsqueda, mostrar tarifas y recibir mensajes.</p>
+              </div>
+              <ProfileExpertActions triggerLabel="Completar perfil de experto" />
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
