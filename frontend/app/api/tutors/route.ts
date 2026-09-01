@@ -21,6 +21,7 @@ export async function GET(
       headers: {
         Authorization: `Bearer ${token}`,
       },
+      cache: "no-store",
     });
 
     if (response.status === 401) {

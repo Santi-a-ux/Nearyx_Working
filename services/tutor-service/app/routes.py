@@ -17,7 +17,7 @@ from app.schemas import (
     VerificationPublicOut,
     VerificationReviewIn,
     VerificationListOut,
-    NetworkRecommendationsOut,
+    NetworkGraphOut,
     VERIFICATION_REVIEW_STATUSES,
 )
 from app.dependencies import require_tutor_role, get_current_user, require_admin
@@ -28,108 +28,106 @@ import uuid
 router = APIRouter()
 
 
-def _topic_set(*values):
-    return {str(value).strip().lower() for value in values if value and str(value).strip()}
+async def _direct_edges_for(db: AsyncSession, user_ids: list, exclude_ids: set):
+    """
+    Devuelve las aristas DIRECTAS reales (chat o reserva activa/completada)
+    que salen de cualquiera de user_ids hacia otro usuario. exclude_ids son
+    ids que no se agregan como destino nuevo (ya están en el grafo), aunque
+    la arista hacia ellos igual se puede reportar si aplica.
+    """
+    if not user_ids:
+        return []
+
+    chat_result = await db.execute(text('''
+        SELECT DISTINCT a.user_id AS source, b.user_id AS target
+        FROM chat.conversations c
+        CROSS JOIN LATERAL unnest(c.participant_ids) AS a(user_id)
+        CROSS JOIN LATERAL unnest(c.participant_ids) AS b(user_id)
+        WHERE a.user_id = ANY(:ids) AND b.user_id <> a.user_id
+    '''), {"ids": user_ids})
+    chat_edges = [(row.source, row.target, "chat") for row in chat_result]
+
+    booking_result = await db.execute(text('''
+        SELECT student_id AS source, tutor_id AS target
+        FROM bookings.bookings
+        WHERE status NOT IN ('cancelled', 'rejected')
+          AND (student_id = ANY(:ids) OR tutor_id = ANY(:ids))
+    '''), {"ids": user_ids})
+    booking_edges = []
+    for row in booking_result:
+        if row.source in user_ids:
+            booking_edges.append((row.source, row.target, "booking"))
+        if row.target in user_ids:
+            booking_edges.append((row.target, row.source, "booking"))
+
+    return chat_edges + booking_edges
 
 
-def _network_item(row, target_topics, reason):
-    specialties = row.get("specialties") or []
-    categories = row.get("categories") or []
-    candidate_topics = _topic_set(*(specialties + categories), row.get("bio"))
-    common_topics = sorted(target_topics & candidate_topics)
-    score = min(100.0, float(row.get("connection_count") or 1) * 15 + len(common_topics) * 20)
-    return {
-        "user_id": row["user_id"],
-        "display_name": row.get("display_name"),
-        "bio": row.get("bio"),
-        "avatar_url": row.get("avatar_url"),
-        "role": row.get("role"),
-        "specialties": specialties,
-        "categories": categories,
-        "common_topics": common_topics,
-        "score": score,
-        "connection_count": int(row.get("connection_count") or 1),
-        "reason": reason,
-    }
-
-
-@router.get('/recommendations/{user_id}', response_model=NetworkRecommendationsOut)
+@router.get('/recommendations/{user_id}', response_model=NetworkGraphOut)
 async def get_network_recommendations(
     user_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    """Build public network recommendations from conversations and completed/active bookings."""
-    target_result = await db.execute(text('''
-        SELECT up.bio, tp.specialties, tp.categories
-        FROM (SELECT CAST(:user_id AS uuid) AS user_id) target
-        LEFT JOIN users.profiles up ON up.user_id = target.user_id
-        LEFT JOIN tutors.profiles tp ON tp.user_id = target.user_id
-    '''), {"user_id": str(user_id)})
-    target = target_result.mappings().first()
-    target_topics = _topic_set(
-        *(target.get("specialties") or []),
-        *(target.get("categories") or []),
-        target.get("bio") if target else None,
-    )
+    """
+    Construye el grafo real de conexiones directas del usuario, expandido a
+    2 saltos: mis conexiones directas (chat/reservas), más las conexiones
+    directas de esas personas (aunque yo no las conozca directamente). No
+    hay afinidad por temas/palabras — solo conexiones reales existentes.
+    """
+    seen_edges = set()
+    edges: list = []
+    node_ids = {user_id}
 
-    people_result = await db.execute(text('''
-        WITH direct AS (
-                        SELECT DISTINCT participant.user_id
-            FROM chat.conversations c
-                        CROSS JOIN LATERAL unnest(c.participant_ids) AS participant(user_id)
-            WHERE CAST(:user_id AS uuid) = ANY(c.participant_ids)
-                            AND participant.user_id <> CAST(:user_id AS uuid)
-        ), candidates AS (
-            SELECT d.user_id, 1 AS depth FROM direct d
-            UNION ALL
-                        SELECT DISTINCT participant.user_id, 2 AS depth
-            FROM chat.conversations c
-            JOIN direct d ON d.user_id = ANY(c.participant_ids)
-                        CROSS JOIN LATERAL unnest(c.participant_ids) AS participant(user_id)
-                        WHERE participant.user_id <> CAST(:user_id AS uuid)
-        )
-                SELECT c.user_id, MIN(c.depth) AS depth, COUNT(*) AS connection_count,
-               au.role, up.display_name, up.bio, up.avatar_url,
-               tp.specialties, tp.categories
-        FROM candidates c
-        JOIN authe.users au ON au.id = c.user_id AND au.is_active = TRUE
-        LEFT JOIN users.profiles up ON up.user_id = c.user_id
-        LEFT JOIN tutors.profiles tp ON tp.user_id = c.user_id
-        WHERE c.user_id <> CAST(:user_id AS uuid)
-        GROUP BY c.user_id, au.role, up.display_name, up.bio,
-                 up.avatar_url, tp.specialties, tp.categories
-        ORDER BY connection_count DESC, MIN(c.depth) ASC
-        LIMIT 12
-    '''), {"user_id": str(user_id)})
+    # 1er salto: mis conexiones directas
+    hop1_edges = await _direct_edges_for(db, [user_id], exclude_ids=set())
+    hop1_targets = set()
+    for source, target, edge_type in hop1_edges:
+        key = (source, target, edge_type)
+        if key not in seen_edges:
+            seen_edges.add(key)
+            edges.append((source, target, edge_type))
+        node_ids.add(target)
+        hop1_targets.add(target)
 
-    tutors_result = await db.execute(text('''
-        WITH direct AS (
-                        SELECT DISTINCT participant.user_id
-            FROM chat.conversations c
-                        CROSS JOIN LATERAL unnest(c.participant_ids) AS participant(user_id)
-            WHERE CAST(:user_id AS uuid) = ANY(c.participant_ids)
-                            AND participant.user_id <> CAST(:user_id AS uuid)
-        )
-        SELECT b.tutor_id AS user_id, COUNT(*) AS connection_count,
-               au.role, up.display_name, up.bio, up.avatar_url,
-               tp.specialties, tp.categories
-        FROM bookings.bookings b
-        JOIN direct d ON d.user_id = b.student_id
-        JOIN authe.users au ON au.id = b.tutor_id AND au.is_active = TRUE
-        LEFT JOIN users.profiles up ON up.user_id = b.tutor_id
-        LEFT JOIN tutors.profiles tp ON tp.user_id = b.tutor_id
-                WHERE b.status NOT IN ('cancelled', 'rejected')
-                    AND b.tutor_id <> CAST(:user_id AS uuid)
-        GROUP BY b.tutor_id, au.role, up.display_name, up.bio, up.avatar_url,
-                 tp.specialties, tp.categories
-        ORDER BY connection_count DESC
-        LIMIT 12
-    '''), {"user_id": str(user_id)})
+    # 2do salto: conexiones directas de mis contactos directos (C-B),
+    # aunque B no sea contacto mío. Solo se agrega si la conexión C-B
+    # es real (chat o reserva), nunca por afinidad de perfil.
+    if hop1_targets:
+        hop2_edges = await _direct_edges_for(db, list(hop1_targets), exclude_ids=node_ids)
+        for source, target, edge_type in hop2_edges:
+            if target == user_id:
+                continue  # ya está representada como arista directa mía
+            key = (source, target, edge_type)
+            if key not in seen_edges:
+                seen_edges.add(key)
+                edges.append((source, target, edge_type))
+            node_ids.add(target)
 
-    people = [_network_item(row, target_topics, "Contacto de tu red") for row in people_result.mappings()]
-    tutors = [_network_item(row, target_topics, "Tutor contratado por alguien de tu red") for row in tutors_result.mappings()]
-    return {"user_id": user_id, "people": people, "tutors": tutors}
+    node_ids.discard(user_id)
+    nodes = []
+    if node_ids:
+        nodes_result = await db.execute(text('''
+            SELECT au.id AS user_id, au.role, up.display_name, up.bio, up.avatar_url,
+                   tp.specialties, tp.categories
+            FROM authe.users au
+            LEFT JOIN users.profiles up ON up.user_id = au.id
+            LEFT JOIN tutors.profiles tp ON tp.user_id = au.id
+            WHERE au.id = ANY(:ids) AND au.is_active = TRUE
+        '''), {"ids": list(node_ids)})
+        for row in nodes_result.mappings():
+            nodes.append({
+                "user_id": row["user_id"],
+                "display_name": row.get("display_name"),
+                "bio": row.get("bio"),
+                "avatar_url": row.get("avatar_url"),
+                "role": row.get("role"),
+                "specialties": row.get("specialties") or [],
+                "categories": row.get("categories") or [],
+            })
+
+    edge_dicts = [{"source": s, "target": t, "edge_type": et} for s, t, et in edges]
+    return {"user_id": user_id, "nodes": nodes, "edges": edge_dicts}
 
 @router.post("/profiles", response_model=TutorProfileOut, status_code=status.HTTP_201_CREATED)
 async def create_profile(
@@ -260,13 +258,21 @@ async def list_tutors(
                 func.ST_SetSRID(func.ST_MakePoint(lng, lat), 4326)
             ) <= radius)
 
+        # Con specialties muy cortas (una o dos palabras), el modelo comprime
+        # mucho las distancias y un umbral fijo no separa bien lo relevante
+        # de lo irrelevante (ej: "llanta"→Mecánico=0.23 vs Cocinero=0.25,
+        # apenas 0.015 de diferencia). En vez de un corte absoluto, usamos un
+        # margen relativo al mejor resultado de ESTA búsqueda: solo se
+        # muestran perfiles razonablemente cerca del más relevante, más un
+        # techo absoluto generoso para descartar resultados sin relación
+        # alguna (ej: distancia > 0.5).
         best_distance_subq = (
             select(func.min(distance_expr))
             .where(TutorProfile.embedding.is_not(None))
             .scalar_subquery()
         )
-        relative_margin = 0.06
-        absolute_ceiling = 0.5
+        relative_margin = 0.02
+        absolute_ceiling = 0.16
         fetch_stmt = fetch_stmt.where(distance_expr < absolute_ceiling)
         fetch_stmt = fetch_stmt.where(distance_expr <= best_distance_subq + relative_margin)
         fetch_stmt = fetch_stmt.order_by(distance_expr).limit(limit).offset(offset)

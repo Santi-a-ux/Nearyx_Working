@@ -36,7 +36,7 @@ class TutorListOut(BaseModel):
     total: int
 
 
-class NetworkRecommendation(BaseModel):
+class NetworkNode(BaseModel):
     user_id: UUID4
     display_name: Optional[str] = None
     bio: Optional[str] = None
@@ -44,16 +44,24 @@ class NetworkRecommendation(BaseModel):
     role: Optional[str] = None
     specialties: List[str] = []
     categories: List[str] = []
-    common_topics: List[str] = []
-    score: float
-    connection_count: int = 1
-    reason: str
 
 
-class NetworkRecommendationsOut(BaseModel):
+class NetworkEdge(BaseModel):
+    source: UUID4
+    target: UUID4
+    edge_type: str  # "chat" | "booking"
+
+
+class NetworkGraphOut(BaseModel):
+    """
+    Grafo real de conexiones: solo aristas DIRECTAS (chat o reserva),
+    expandido a 2 saltos desde el usuario. Una arista C-B aparece si
+    B tiene una conexión directa real con C, sin importar afinidad de
+    temas/specialties — no hay scoring por similitud aquí.
+    """
     user_id: UUID4
-    people: List[NetworkRecommendation] = []
-    tutors: List[NetworkRecommendation] = []
+    nodes: List[NetworkNode] = []
+    edges: List[NetworkEdge] = []
 
 
 class TutorRatingIn(BaseModel):

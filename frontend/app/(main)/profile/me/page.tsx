@@ -3,13 +3,13 @@ import Link from "next/link";
 import { fetchApi } from "@/lib/api";
 import { UserAvatar } from "@/components/user-avatar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { EditProfileDialog } from "@/components/profile/edit-profile-dialog";
 import { ProfileExpertActions } from "@/components/profile/profile-expert-actions";
 import { VerificationStatusActions } from "@/components/profile/verification-status-actions";
 import TutorPaymentSettings from "@/components/profile/tutor-payment-settings";
 import TutorRateSettings from "@/components/profile/tutor-rate-settings";
-import { ProfileNetwork, type NetworkRecommendations } from "@/components/profile/profile-network";
+import type { NetworkRecommendations } from "@/components/profile/profile-network";
 import NetworkGraphBackground from "@/components/NetworkGraphBackground";
 import { appCardClass, appCardInnerClass, appCardSoftClass } from "@/lib/surface-styles";
 import { normalizeVerificationStatus, type VerificationRequest } from "@/lib/verification";
@@ -167,7 +167,18 @@ export default async function MyProfilePage() {
         </div>
       )}
 
-      <ProfileNetwork network={network} />
+      {network && network.edges.length > 0 && (
+        <div className="mt-6 flex items-center justify-between rounded-2xl border border-border bg-white/85 p-5 backdrop-blur-md">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#10314F]/55">Red de contactos</p>
+            <h2 className="mt-1 text-lg font-bold text-[#10314F]">Tu red de conexiones</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Visualiza tu grafo completo: quién conoces directamente y quién llega a través de tus contactos.</p>
+          </div>
+          <Link href="/network" className={`${buttonVariants({ variant: "default" })} shrink-0`}>
+            Ver grafo completo
+          </Link>
+        </div>
+      )}
 
       {tutorProfile ? (
         <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">

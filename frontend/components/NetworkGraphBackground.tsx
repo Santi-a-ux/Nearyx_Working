@@ -6,35 +6,36 @@ import { useRouter } from "next/navigation";
 /* ============================================================
    TYPES — mirror the API response shape exactly
    ============================================================ */
-interface PersonNode {
+interface ApiNode {
   user_id: string;
-  display_name: string;
+  display_name: string | null;
   bio: string | null;
   avatar_url: string | null;
-  role: string;
+  role: string | null;
   specialties: string[];
   categories: string[];
-  common_topics: string[];
-  score: number;
-  connection_count: number;
-  reason: string;
+}
+
+interface ApiEdge {
+  source: string;
+  target: string;
+  edge_type: "chat" | "booking";
 }
 
 interface RecommendationsResponse {
   user_id: string;
-  people: PersonNode[];
-  tutors: PersonNode[];
+  nodes: ApiNode[];
+  edges: ApiEdge[];
 }
 
 interface GraphNode {
   id: string;
   label: string;
   role: "self" | "tutor" | "people";
+  connectionType: "self" | "direct" | "indirect";
   bio: string;
   reason: string;
   categories: string[];
-  score: number;
-  connectionCount: number;
   baseR: number;
   x: number;
   y: number;
@@ -92,6 +93,14 @@ const COLORS = {
   self: "#ff5da2",
   tutor: "#ffd166",
   people: "#6ea8ff",
+};
+
+// Versiones apagadas/grises para nodos "indirectos" — gente que aún no
+// tienes como conexión directa, solo visible porque un contacto tuyo sí
+// se conecta con ellos.
+const COLORS_INDIRECT = {
+  tutor: "#8a8060",
+  people: "#5c6a8a",
 };
 
 export default function NetworkGraphBackground({
@@ -157,16 +166,16 @@ export default function NetworkGraphBackground({
     const cy = h / 2 + offsetRef.current;
     const nodes: GraphNode[] = [];
     const edges: GraphEdge[] = [];
+    const meId = data.user_id;
 
     const centerNode: GraphNode = {
-      id: data.user_id,
+      id: meId,
       label: "Tú",
       role: "self",
+      connectionType: "self",
       bio: "",
       reason: "",
       categories: [],
-      score: 0,
-      connectionCount: 0,
       baseR: 26,
       x: w / 2,
       y: cy,
@@ -175,45 +184,42 @@ export default function NetworkGraphBackground({
     };
     nodes.push(centerNode);
 
-    const all = [
-      ...(data.people || []).map((p) => ({ ...p, role: p.role || "student" })),
-      ...(data.tutors || []).map((t) => ({ ...t, role: "tutor" })),
-    ];
+    // Quiénes son conexión DIRECTA conmigo (arista que toca mi nodo)
+    const directIds = new Set<string>();
+    (data.edges || []).forEach((e) => {
+      if (e.source === meId) directIds.add(e.target);
+      if (e.target === meId) directIds.add(e.source);
+    });
 
-    const maxScore = Math.max(1, ...all.map((p) => p.score || 1));
-
-    all.forEach((p, i) => {
-      const angle = (i / Math.max(1, all.length)) * Math.PI * 2 + Math.random() * 0.4;
-      const radius = 160 + Math.random() * 140;
-      const scoreRatio = (p.score || 1) / maxScore;
+    const apiNodes = data.nodes || [];
+    apiNodes.forEach((p, i) => {
+      const isDirect = directIds.has(p.user_id);
+      const angle = (i / Math.max(1, apiNodes.length)) * Math.PI * 2 + Math.random() * 0.4;
+      const radius = (isDirect ? 160 : 240) + Math.random() * 140;
       nodes.push({
         id: p.user_id,
-        label: p.display_name,
+        label: p.display_name || "Perfil disponible",
         role: p.role === "tutor" ? "tutor" : "people",
+        connectionType: isDirect ? "direct" : "indirect",
         bio: p.bio || "",
-        reason: p.reason || "",
+        reason: isDirect ? "Conexión directa" : "Aún no conectado directamente",
         categories: p.categories || [],
-        score: p.score || 0,
-        connectionCount: p.connection_count || 0,
-        baseR: 10 + scoreRatio * 14,
+        baseR: isDirect ? 16 : 9,
         x: w / 2 + Math.cos(angle) * radius,
         y: cy + Math.sin(angle) * radius,
         vx: 0,
         vy: 0,
       });
-      edges.push({ a: centerNode.id, b: p.user_id, weight: scoreRatio });
     });
 
-    for (let i = 1; i < nodes.length; i++) {
-      for (let j = i + 1; j < nodes.length; j++) {
-        const n1 = nodes[i];
-        const n2 = nodes[j];
-        const shared = n1.categories.some((c) => n2.categories.includes(c));
-        if (shared) {
-          edges.push({ a: n1.id, b: n2.id, weight: 0.15, secondary: true });
-        }
-      }
-    }
+    // Aristas reales tal como las manda el backend: si tocan mi nodo son
+    // primarias (conexión directa mía); si conectan a otras dos personas
+    // entre sí (C↔B) son secundarias — son reales, no inventadas por
+    // afinidad de temas.
+    (data.edges || []).forEach((e) => {
+      const touchesMe = e.source === meId || e.target === meId;
+      edges.push({ a: e.source, b: e.target, weight: 1, secondary: !touchesMe });
+    });
 
     nodesRef.current = nodes;
     edgesRef.current = edges;
@@ -271,7 +277,7 @@ export default function NetworkGraphBackground({
         const data: RecommendationsResponse = await res.json();
         if (cancelled) return;
         buildGraph(data);
-        setStatus(`Red cargada — ${data.people.length + data.tutors.length} conexiones`);
+        setStatus(`Red cargada — ${data.nodes.length} conexiones`);
       } catch (err) {
         if (cancelled) return;
         console.warn("No se pudo cargar la red de recomendaciones:", err);
@@ -426,7 +432,12 @@ export default function NetworkGraphBackground({
       return n._r;
     };
 
-    const colorFor = (n: GraphNode) => COLORS[n.role];
+    const colorFor = (n: GraphNode) => {
+      if (n.connectionType === "indirect" && n.role !== "self") {
+        return COLORS_INDIRECT[n.role] ?? COLORS[n.role];
+      }
+      return COLORS[n.role];
+    };
 
     const maybeSpawnShootingStar = () => {
       const { w, h } = sizeRef.current;
@@ -565,7 +576,7 @@ export default function NetworkGraphBackground({
         ctx.beginPath();
         ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
         ctx.fillStyle = glowColor;
-        ctx.globalAlpha = n.role === "self" ? 1 : 0.95;
+        ctx.globalAlpha = n.role === "self" ? 1 : n.connectionType === "indirect" ? 0.65 : 0.95;
         ctx.fill();
         ctx.globalAlpha = 1;
 
@@ -643,6 +654,7 @@ export default function NetworkGraphBackground({
         <LegendItem color={COLORS.self} label="Tú" />
         <LegendItem color={COLORS.people} label="Personas" />
         <LegendItem color={COLORS.tutor} label="Tutores" />
+        <LegendItem color={COLORS_INDIRECT.people} label="Aún no conectado" />
       </div>
       <div
         ref={tooltipRef}
