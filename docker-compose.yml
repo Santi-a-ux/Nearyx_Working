@@ -2,26 +2,6 @@ services:
 
   # ─── INFRAESTRUCTURA ────────────────────────────────────────────────────────
 
-  postgres:
-    image: postgis/postgis:16-3.4
-    container_name: ttp-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-ttp}
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init-db.sql
-      - ./scripts/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   redis:
     image: redis:7-alpine
     container_name: ttp-redis
@@ -49,9 +29,6 @@ services:
     env_file: .env
     environment:
       - PORT=8001
-    depends_on:
-      postgres:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 10s
@@ -70,8 +47,6 @@ services:
     environment:
       - PORT=8002
     depends_on:
-      postgres:
-        condition: service_healthy
       auth-service:
         condition: service_healthy
     healthcheck:
@@ -92,8 +67,6 @@ services:
     environment:
       - PORT=8003
     depends_on:
-      postgres:
-        condition: service_healthy
       auth-service:
         condition: service_healthy
       user-service:
@@ -115,9 +88,6 @@ services:
     env_file: .env
     environment:
       - PORT=8004
-    depends_on:
-      postgres:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
       interval: 10s
@@ -136,8 +106,6 @@ services:
     environment:
       - PORT=8005
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
       auth-service:
@@ -160,8 +128,6 @@ services:
     environment:
       - PORT=8007
     depends_on:
-      postgres:
-        condition: service_healthy
       auth-service:
         condition: service_healthy
     healthcheck:
@@ -181,12 +147,6 @@ services:
     env_file: .env
     environment:
       - PORT=8006
-      - MEDIA_LOCAL_ROOT=/media_files
-    depends_on:
-      postgres:
-        condition: service_healthy
-    volumes:
-      - media_files:/media_files
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
       interval: 10s

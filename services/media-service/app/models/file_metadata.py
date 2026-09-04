@@ -1,8 +1,10 @@
-from sqlalchemy import Column, String, Integer, DateTime
-from sqlalchemy.dialects.postgresql import UUID
 from datetime import datetime
-from sqlalchemy import text
-from app.database import Base
+
+from sqlalchemy import Column, DateTime, Integer, String, text
+from sqlalchemy.dialects.postgresql import UUID
+
+from database import Base
+
 
 class FileMetadata(Base):
     __tablename__ = "files"

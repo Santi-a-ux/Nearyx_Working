@@ -4,7 +4,7 @@ from sqlalchemy import event
 from pgvector.asyncpg import register_vector
 import os
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:postgres@localhost:5432/ttp")
+DATABASE_URL = os.environ["DATABASE_URL"]
 
 engine = create_async_engine(
     DATABASE_URL,

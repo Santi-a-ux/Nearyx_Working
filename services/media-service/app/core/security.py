@@ -1,6 +1,6 @@
 from fastapi import Request, HTTPException, status
 from jose import jwt, JWTError
-from app.core.config import settings
+from core.config import settings
 
 def verify_token(request: Request):
     auth_header = request.headers.get("Authorization")

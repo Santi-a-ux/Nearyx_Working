@@ -25,6 +25,7 @@ export function ScreenReaderProvider({
 }) {
   const [isActive, setIsActive] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const lastSpokenText = React.useRef("");
 
   useEffect(() => {
     setMounted(true);
@@ -42,6 +43,7 @@ export function ScreenReaderProvider({
       );
 
       utterance.lang = "es-CO";
+      utterance.volume = 1;
 
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(utterance);
@@ -62,12 +64,37 @@ export function ScreenReaderProvider({
 
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = "es-CO";
+        utterance.volume = 1;
 
         window.speechSynthesis.speak(utterance);
       }
     },
     [isActive, mounted]
   );
+
+  useEffect(() => {
+    if (!mounted || !isActive) return;
+
+    const handleMouseOver = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+
+      const text = (
+        target.getAttribute("aria-label") ||
+        target.getAttribute("title") ||
+        target.getAttribute("placeholder") ||
+        target.textContent ||
+        ""
+      ).replace(/\s+/g, " ").trim();
+
+      if (!text || text === lastSpokenText.current) return;
+      lastSpokenText.current = text;
+      speak(text);
+    };
+
+    document.addEventListener("mouseover", handleMouseOver);
+    return () => document.removeEventListener("mouseover", handleMouseOver);
+  }, [isActive, mounted, speak]);
 
   const stop = useCallback(() => {
     if (

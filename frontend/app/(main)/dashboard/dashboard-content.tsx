@@ -16,7 +16,6 @@ import { UserAvatar } from "@/components/user-avatar";
 import { DashboardRightPanel } from "@/components/dashboard/dashboard-right-panel";
 import InlineTutorRating from "@/components/profile/inline-tutor-rating";
 import { cardElevatedClass } from "@/lib/surface-styles";
-import { SAMPLE_POSTS } from "@/lib/constants";
 import { isExpertFeedAuthorRole, mapSessionRoleToFeedAuthorRole, type FeedAuthorRole } from "@/lib/feed-author-role";
 import { RATING_UPDATED_EVENT } from "@/lib/rating-events";
 import { matchesKeywordSearch } from "@/lib/tutor-search";
@@ -77,13 +76,8 @@ interface FeedComment {
   created_at: string;
 }
 
-const starterPosts: FeedPost[] = SAMPLE_POSTS.map((post, index) => ({
-  ...post,
-  author_role: index % 2 === 0 ? "Estudiante" : "Experto",
-})) as FeedPost[];
-
 async function fetchFeedPosts(limit = 20, offset = 0): Promise<FeedResponse> {
-  const response = await fetch(`/api/feed/posts?limit=${limit}&offset=${offset}`);
+  const response = await fetch(`/api/feed/posts?limit=${limit}&offset=${offset}`, { cache: "no-store" });
   if (!response.ok) throw new Error("No se pudo cargar el feed");
   return response.json();
 }
@@ -271,7 +265,7 @@ export function DashboardContent({ mapboxAccessToken = "" }: { mapboxAccessToken
       imageUrl?: string | null;
       authorRole?: FeedAuthorRole;
     }) => createFeedPost(content, imageUrl || undefined, authorRole),
-    onSuccess: () => {
+    onSuccess: async () => {
       setNewPost("");
       setAttachedImageUrl(null);
       if (previewUrlRef.current) {
@@ -280,7 +274,7 @@ export function DashboardContent({ mapboxAccessToken = "" }: { mapboxAccessToken
       }
       setAttachedImagePreview(null);
       setComposerOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["feed-posts"] });
+      await queryClient.refetchQueries({ queryKey: ["feed-posts"] });
       toast.success("Publicación creada");
     },
     onError: (error: unknown) => {
@@ -290,7 +284,7 @@ export function DashboardContent({ mapboxAccessToken = "" }: { mapboxAccessToken
 
   const tutors = tutorsData?.tutors ?? [];
   const expertUserIds = new Set(tutors.map((tutor) => tutor.user_id));
-  const rawPosts = feedData?.posts?.length ? feedData.posts : starterPosts;
+  const rawPosts = feedData?.posts ?? [];
   const posts = rawPosts.map((post) => enrichFeedPost(post, currentUserProfile, expertUserIds));
   const filteredPosts = searchQuery ? posts.filter((post) => matchesKeywordSearch(`${post.content} ${post.author_name || ""}`, searchQuery)) : posts;
   const currentUserLabel = currentUserProfile?.display_name || currentUserProfile?.email?.split("@")[0] || "Tu";

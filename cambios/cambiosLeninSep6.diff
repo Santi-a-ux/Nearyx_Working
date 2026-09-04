@@ -1,0 +1,33 @@
+Eliminación de PostgreSQL local del docker-compose
+
+Se eliminó el contenedor de PostgreSQL y sus configuraciones asociadas del docker-compose. Los servicios dejan de depender directamente de que ese contenedor esté definido y saludable dentro de esta configuración.
+Feed conectado al backend real
+
+Se eliminaron las publicaciones de ejemplo que se utilizaban como contenido inicial y el feed ahora trabaja únicamente con los datos obtenidos desde la API. Además, las consultas utilizan no-store y, después de crear una publicación, se fuerza una nueva consulta para mostrar inmediatamente los datos actualizados.
+Comentarios migrados al servicio de Media
+
+La API del frontend dejó de almacenar y gestionar comentarios localmente. Ahora las operaciones de consulta y creación de comentarios se envían al media-service, centralizando allí la gestión de estos datos. También se realizan en paralelo las consultas de autenticación y perfil para obtener la información del autor.
+Publicaciones migradas al servicio de Media
+
+Al igual que los comentarios, las publicaciones dejaron de almacenarse mediante el almacenamiento local del frontend. Ahora se consultan y crean mediante el media-service, haciendo que el backend sea la fuente principal de los datos del feed. También se exige autenticación para publicar.
+Mejora de accesibilidad del lector de pantalla
+
+El lector de pantalla ahora puede leer automáticamente el contenido de elementos sobre los que pasa el cursor, utilizando información como aria-label, title, placeholder o el texto visible. Además, se evita repetir continuamente el mismo texto y se establece el volumen de lectura al máximo.
+Configuración de base de datos mediante variables de entorno
+
+Los servicios de autenticación, usuarios y tutores dejaron de utilizar una URL de PostgreSQL predeterminada dentro del código. Ahora la conexión debe proporcionarse mediante DATABASE_URL. Esto evita depender de credenciales y direcciones de base de datos escritas directamente en el código.
+Configuración más segura del Chat Service
+
+DATABASE_URL y JWT_SECRET pasaron a ser valores obligatorios proporcionados mediante configuración externa, en lugar de tener valores por defecto incluidos en el código. Esto reduce el riesgo de utilizar secretos o credenciales predeterminados.
+Reestructuración del Media Service
+
+El servicio de archivos/media fue reorganizado para separar las rutas en controladores específicos para publicaciones, comentarios y archivos multimedia. Esto hace que el servicio tenga una estructura más modular y facilita su mantenimiento y ampliación.
+Ajuste de configuración y estructura interna del Media Service
+
+Se modificaron las importaciones y el arranque del servicio para adaptarse a la nueva estructura de controladores y modelos. Además, el servicio crea los esquemas media y feed al iniciar y genera las tablas correspondientes mediante SQLAlchemy.
+Configuración de Supabase mediante variables de entorno
+
+El media-service y el user-service dejaron de tener configuraciones de Supabase escritas directamente en el código. La URL y la clave de Supabase ahora deben proporcionarse mediante SUPABASE_URL y SUPABASE_KEY, haciendo la configuración más segura y flexible entre entornos.
+Corrección del arranque del Media Service
+
+Se modificó el Dockerfile para establecer PYTHONPATH=/app/app y ejecutar correctamente main:app. Esto adapta el comando de inicio a la nueva organización interna del servicio.

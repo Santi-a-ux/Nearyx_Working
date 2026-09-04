@@ -17,12 +17,8 @@ class SupabaseStorageRepository:
         key: Optional[str] = None,
         bucket: Optional[str] = None,
     ):
-        self.url = url or os.getenv(
-            "SUPABASE_URL",
-            "https://jbgctnllykajfcjqxnly.supabase.co",
-        )
-        self.key = key or os.getenv(
-            "SUPABASE_KEY"      )
+        self.url = url or os.environ["SUPABASE_URL"]
+        self.key = key or os.environ["SUPABASE_KEY"]
         self.bucket = bucket or os.getenv("SUPABASE_BUCKET", "tempoimages")
         self.client = self._build_client()
 
