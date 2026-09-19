@@ -40,7 +40,8 @@ const MAP_HEIGHT = 'calc(100vh - 10rem)';
 const MAP_MIN_HEIGHT = 480;
 
 const RADII = [2, 5, 10, 20, 50];
-const DEFAULT_CENTER: [number, number] = [-75.52, 5.07];
+const FORCE_MEDELLIN = process.env.NEXT_PUBLIC_FORCE_MEDELLIN === '1';
+const DEFAULT_CENTER: [number, number] = FORCE_MEDELLIN ? [-75.5812, 6.2442] : [-75.52, 5.07];
 const KM_TO_METERS = 1000;
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {

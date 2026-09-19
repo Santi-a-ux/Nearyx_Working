@@ -13,7 +13,8 @@ import {
   type MapTutorPin,
 } from "@/lib/map-tutor-coords";
 
-const DEFAULT_CENTER: [number, number] = [-75.52, 5.07];
+const FORCE_MEDELLIN = process.env.NEXT_PUBLIC_FORCE_MEDELLIN === '1';
+const DEFAULT_CENTER: [number, number] = FORCE_MEDELLIN ? [-75.5812, 6.2442] : [-75.52, 5.07];
 const DEFAULT_ZOOM = 12.2;
 
 interface MapPreviewProps {

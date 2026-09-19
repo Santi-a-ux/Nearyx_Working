@@ -15,9 +15,16 @@ export async function GET(
     }
 
     const url = new URL(request.nextUrl);
-    const queryString = url.search;
+    const params = new URLSearchParams(url.searchParams);
+    const forceMedellin = process.env.NEXT_PUBLIC_FORCE_MEDELLIN === '1';
 
-    const response = await fetch(`${API_URL}/tutors/${queryString}`, {
+    // Default to Medellín if no client-provided coordinates and flag is on
+    if (forceMedellin) {
+      if (!params.has("lat")) params.set("lat", "6.2442");
+      if (!params.has("lng")) params.set("lng", "-75.5812");
+    }
+
+    const response = await fetch(`${API_URL}/tutors/?${params.toString()}`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
