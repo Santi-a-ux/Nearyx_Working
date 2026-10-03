@@ -1,7 +1,17 @@
-FROM python:3.12-slim
+FROM node:22-slim
 WORKDIR /app
+
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8007"]
+
+COPY app/package*.json ./
+RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev; fi
+
+COPY app/ ./
+
+ENV NODE_ENV=production
+ENV PORT=8002
+EXPOSE 8002
+
+USER node
+
+CMD ["node", "src/server.js"]
