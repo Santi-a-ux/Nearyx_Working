@@ -66,6 +66,9 @@ services:
     env_file: .env
     environment:
       - PORT=8003
+    volumes:
+      # Embedding model (~470 MB, downloaded on first start); keeps it across rebuilds
+      - tutor_model_cache:/app/.cache
     depends_on:
       auth-service:
         condition: service_healthy
@@ -198,7 +201,7 @@ services:
       args:
         NEXT_PUBLIC_MAPBOX_TOKEN: ${MAPBOX_PUBLIC_TOKEN:-${NEXT_PUBLIC_MAPBOX_TOKEN}}
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
-        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-ws://localhost:8005}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-ws://localhost:8000}
         NEXT_PUBLIC_FORCE_MEDELLIN: ${NEXT_PUBLIC_FORCE_MEDELLIN:-0}
     container_name: ttp-frontend
     restart: unless-stopped
@@ -215,6 +218,7 @@ volumes:
   postgres_data:
   redis_data:
   media_files:
+  tutor_model_cache:
 
 networks:
   default:

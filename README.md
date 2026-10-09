@@ -48,7 +48,7 @@ cd Nearyx_Working
 # frontend/.env.local
 #   NEXT_PUBLIC_API_URL=http://localhost:8000
 #   INTERNAL_API_URL=http://localhost:8000
-#   NEXT_PUBLIC_WS_URL=ws://localhost:8005
+#   NEXT_PUBLIC_WS_URL=ws://localhost:8000
 ```
 
 Edita `.env` y `frontend/.env.local` con tus valores reales (sobre todo **Mapbox** y `JWT_SECRET`).

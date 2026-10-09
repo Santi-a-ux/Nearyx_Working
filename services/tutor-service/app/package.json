@@ -1,0 +1,24 @@
+{
+  "name": "ttp-tutor-service",
+  "version": "1.0.0",
+  "description": "TTP Tutor Service (Node.js, 4-layer architecture)",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "backfill:embeddings": "node scripts/backfillEmbeddings.js",
+    "debug:search": "node scripts/debugSearch.js",
+    "verify:embeddings": "node scripts/verifyEmbeddings.js"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@huggingface/transformers": "^3.7.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.13.1",
+    "zod": "^3.24.1"
+  }
+}

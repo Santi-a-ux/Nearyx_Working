@@ -16,7 +16,7 @@ cd Nearyx_Working
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:8000
 INTERNAL_API_URL=http://localhost:8000
-NEXT_PUBLIC_WS_URL=ws://localhost:8005
+NEXT_PUBLIC_WS_URL=ws://localhost:8000
 MAPBOX_PUBLIC_TOKEN=pk.tu_token_real
 NEXT_PUBLIC_MAPBOX_TOKEN=pk.tu_token_real
 ```
@@ -37,7 +37,7 @@ JWT_REFRESH_TOKEN_EXPIRE_DAYS=7
 SUPABASE_KEY=tusupabasekey
 INTERNAL_API_URL=http://gateway:8000
 NEXT_PUBLIC_API_URL=http://localhost:8000
-NEXT_PUBLIC_WS_URL=ws://localhost:8005
+NEXT_PUBLIC_WS_URL=ws://localhost:8000
 
 MAPBOX_PUBLIC_TOKEN=pk.tu_token_real
 NEXT_PUBLIC_MAPBOX_TOKEN=pk.tu_token_real
