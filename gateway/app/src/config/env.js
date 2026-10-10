@@ -7,8 +7,13 @@ const SERVICE_DEFS = {
   tutors: ['TUTOR_SERVICE_URL', 'http://tutor-service:8003'],
   geo: ['GEO_SERVICE_URL', 'https://geoservice-1.onrender.com'],
   chat: ['CHAT_SERVICE_URL', 'http://chat-service:8005'],
+<<<<<<< HEAD
   media: ['MEDIA_SERVICE_URL', 'https://mediaservice-1.onrender.com/'], // production: set MEDIA_SERVICE_URL (never hardcode URLs here)
   bookings: ['BOOKING_SERVICE_URL', 'https://bookingservice-1-t0ec.onrender.com'],
+=======
+  media: ['MEDIA_SERVICE_URL', 'http://media-service:8006'], // production: set MEDIA_SERVICE_URL (never hardcode URLs here)
+  bookings: ['BOOKING_SERVICE_URL', 'http://booking-service:8007'],
+>>>>>>> fc880d6 (Despliegue comienzos)
 };
 
 const list = (raw) => (raw ?? '').split(',').map((s) => s.trim()).filter(Boolean);
