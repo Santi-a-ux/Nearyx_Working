@@ -7,7 +7,7 @@ function clearSessionResponse(message = "Session expired") {
   const response = NextResponse.json({ error: message }, { status: 401 });
   response.cookies.set("token", "", {
     httpOnly: true,
-    secure: false,
+    secure: process.env.COOKIE_SECURE ? process.env.COOKIE_SECURE === "true" : process.env.NODE_ENV === "production",
     maxAge: 0,
     path: "/",
     sameSite: "lax",

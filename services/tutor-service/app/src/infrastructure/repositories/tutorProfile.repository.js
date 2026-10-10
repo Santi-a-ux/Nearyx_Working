@@ -151,23 +151,27 @@ export class TutorProfileRepository {
     const [lat, lng, radius] = geoParams(geo);
     const { rows } = await this.pool.query(
       `WITH q AS (SELECT $1::text::vector AS v),
-            best AS (
-              SELECT MIN(embedding <=> (SELECT v FROM q)) AS d
-                FROM tutors.profiles WHERE embedding IS NOT NULL
+            pack AS (
+              SELECT MIN(d) AS best,
+                     percentile_cont(0.5) WITHIN GROUP (ORDER BY d) AS median,
+                     COUNT(*) AS n
+                FROM (SELECT embedding <=> (SELECT v FROM q) AS d
+                        FROM tutors.profiles WHERE embedding IS NOT NULL) x
             )
        SELECT ${COLS}, embedding <=> q.v AS semantic_distance
-         FROM tutors.profiles, q, best
+         FROM tutors.profiles, q, pack
         WHERE embedding IS NOT NULL
           AND ($2::boolean IS NULL OR is_available = $2::boolean)
           AND ($3::float8 IS NULL OR ${DISTANCE} <= $5::float8)
           AND embedding <=> q.v < $8::float8
-          AND embedding <=> q.v <= best.d + $9::float8
-          AND best.d < $10::float8
+          AND embedding <=> q.v <= pack.best + $9::float8
+          AND (pack.n < $11::int OR pack.best <= pack.median - $10::float8)
         ORDER BY semantic_distance
         LIMIT $6 OFFSET $7`,
       [
         toVectorLiteral(embedding), isAvailable, lat, lng, radius, limit, offset,
-        SEMANTIC_SEARCH.absoluteCeiling, SEMANTIC_SEARCH.relativeMargin, SEMANTIC_SEARCH.minQualityThreshold,
+        SEMANTIC_SEARCH.absoluteCeiling, SEMANTIC_SEARCH.relativeMargin, SEMANTIC_SEARCH.minSeparation,
+        SEMANTIC_SEARCH.minProfilesForSeparation,
       ],
     );
     return rows.map(toEntity);

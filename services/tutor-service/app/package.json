@@ -9,6 +9,7 @@
     "dev": "node --watch src/server.js",
     "backfill:embeddings": "node scripts/backfillEmbeddings.js",
     "debug:search": "node scripts/debugSearch.js",
+    "calibrate:search": "node scripts/calibrate.js",
     "verify:embeddings": "node scripts/verifyEmbeddings.js"
   },
   "engines": { "node": ">=20" },

@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
 
       response.cookies.set("token", "", {
         httpOnly: true,
-        secure: false,
+        secure: process.env.COOKIE_SECURE ? process.env.COOKIE_SECURE === "true" : process.env.NODE_ENV === "production",
         maxAge: 0,
         path: "/",
         sameSite: "lax",
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
 
       response.cookies.set("token", "", {
         httpOnly: true,
-        secure: false,
+        secure: process.env.COOKIE_SECURE ? process.env.COOKIE_SECURE === "true" : process.env.NODE_ENV === "production",
         maxAge: 0,
         path: "/",
         sameSite: "lax",
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
 
     response.cookies.set("token", updatedToken, {
       httpOnly: true,
-      secure: false,
+      secure: process.env.COOKIE_SECURE ? process.env.COOKIE_SECURE === "true" : process.env.NODE_ENV === "production",
       maxAge: 60 * 60 * 24 * 7,
       path: "/",
       sameSite: "lax",
@@ -116,7 +116,7 @@ export async function PUT(request: NextRequest) {
       const response = NextResponse.json({ error: "Session expired" }, { status: 401 });
       response.cookies.set("token", "", {
         httpOnly: true,
-        secure: false,
+        secure: process.env.COOKIE_SECURE ? process.env.COOKIE_SECURE === "true" : process.env.NODE_ENV === "production",
         maxAge: 0,
         path: "/",
         sameSite: "lax",

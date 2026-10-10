@@ -66,6 +66,9 @@ services:
     env_file: .env
     environment:
       - PORT=8003
+      - SEMANTIC_ABSOLUTE_CEILING=${SEMANTIC_ABSOLUTE_CEILING}
+      - SEMANTIC_RELATIVE_MARGIN=${SEMANTIC_RELATIVE_MARGIN}
+      - SEMANTIC_MIN_QUALITY=${SEMANTIC_MIN_QUALITY}
     volumes:
       # Embedding model (~470 MB, downloaded on first start); keeps it across rebuilds
       - tutor_model_cache:/app/.cache
@@ -215,7 +218,6 @@ services:
         condition: service_healthy
 
 volumes:
-  postgres_data:
   redis_data:
   media_files:
   tutor_model_cache:

@@ -88,14 +88,14 @@ UPDATE tutors.profiles p
 export async function initSchema() {
   await pool.query(DDL);
 
-  // pgvector is not created by scripts/init-db.sql; try to enable it, but do not stop the service
-  // (everything except semantic search works without it).
+  // pgvector is required: TutorProfileRepository.create()/update() always write the `embedding` column,
+  // so without it creating a tutor profile would fail at runtime. Fail fast with a clear message instead.
   try {
     await pool.query('CREATE EXTENSION IF NOT EXISTS vector');
     await pool.query(
       `ALTER TABLE tutors.profiles ADD COLUMN IF NOT EXISTS embedding vector(${config.embeddings.dimensions})`,
     );
   } catch (err) {
-    console.warn(`[tutor-service] pgvector not available, semantic search disabled: ${err.message}`);
+    throw new Error(`pgvector is required (enable the "vector" extension in your database): ${err.message}`);
   }
 }

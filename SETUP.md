@@ -24,10 +24,8 @@ NEXT_PUBLIC_MAPBOX_TOKEN=pk.tu_token_real
 ### `.env` en la raíz
 
 ```env
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
-POSTGRES_DB=ttp
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/ttp
+# Postgres externo (p. ej. Supabase) con las extensiones postgis y vector habilitadas
+DATABASE_URL=postgresql://usuario:password@host:5432/dbname
 REDIS_URL=redis://redis:6379
 
 JWT_SECRET=change-me-in-production
@@ -43,7 +41,14 @@ MAPBOX_PUBLIC_TOKEN=pk.tu_token_real
 NEXT_PUBLIC_MAPBOX_TOKEN=pk.tu_token_real
 
 MEDIA_LOCAL_ROOT=/media_files
+
+# Producción (ver README de tutor-service)
+NODE_ENV=production
+BACKFILL_EMBEDDINGS_ON_START=true
+# COOKIE_SECURE=true   # por defecto es true cuando NODE_ENV=production; pon false solo si sirves por http fuera de localhost
 ```
+
+> **Importante:** en producción `JWT_SECRET` es obligatorio en todos los servicios (si falta, el servicio no arranca).
 
 ## 3. Levanta el proyecto
 
@@ -77,7 +82,7 @@ curl -X POST http://localhost:8000/auth/register \
 También puedes promover una cuenta existente:
 
 ```bash
-docker compose exec postgres psql -U postgres -d ttp \
+psql "$DATABASE_URL" \
   -c "UPDATE authe.users SET role='admin' WHERE email='tu@correo.com';"
 ```
 

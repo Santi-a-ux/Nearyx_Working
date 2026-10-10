@@ -32,7 +32,7 @@ export async function loginAction(prevState: unknown, formData: FormData) {
     const cookieStore = await cookies();
     cookieStore.set("token", data.access_token, {
       httpOnly: true,
-      secure: false, // allow testing over http (localhost) inside Docker; make conditional in prod
+      secure: process.env.COOKIE_SECURE ? process.env.COOKIE_SECURE === "true" : process.env.NODE_ENV === "production",
       maxAge: 60 * 60 * 24 * 7, // 1 semana
       path: "/",
       sameSite: "lax",
@@ -96,7 +96,7 @@ export async function registerAction(prevState: unknown, formData: FormData) {
       const cookieStore = await cookies();
       cookieStore.set("token", data.access_token, {
         httpOnly: true,
-        secure: false, // allow testing over http (localhost) inside Docker; make conditional in prod
+        secure: process.env.COOKIE_SECURE ? process.env.COOKIE_SECURE === "true" : process.env.NODE_ENV === "production",
         maxAge: 60 * 60 * 24 * 7,
         path: "/",
         sameSite: "lax",

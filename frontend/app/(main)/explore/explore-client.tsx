@@ -33,6 +33,22 @@ interface TutorsResponse {
   tutors?: Tutor[];
 }
 
+async function enrichTutor(tutor: Tutor): Promise<Tutor> {
+  try {
+    const profile = await fetchApi<{ display_name?: string; bio?: string; avatar_url?: string }>(
+      `/api/users/profiles/${tutor.user_id}`
+    );
+    return {
+      ...tutor,
+      display_name: profile?.display_name || tutor.display_name,
+      bio: profile?.bio || tutor.bio,
+      avatar_url: profile?.avatar_url || tutor.avatar_url,
+    };
+  } catch {
+    return tutor;
+  }
+}
+
 const MapboxMap = dynamic(() => import("@/components/map/MapboxMap"), {
   ssr: false,
   loading: () => <Skeleton className="h-full min-h-[calc(100vh-10rem)] w-full rounded-2xl" />,
@@ -47,8 +63,8 @@ export default function ExploreClient({ mapboxAccessToken = "" }: ExploreClientP
   const [tutors, setTutors] = useState<Tutor[]>([]);
   const [searchValue, setSearchValue] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
-  const [mapTutors, setMapTutors] = useState<Tutor[]>([]);
-  const [mapPhase, setMapPhase] = useState<'searching' | 'found' | 'empty' | 'idle'>('idle');
+  // Distancias calculadas por el mapa (user_id -> km). Solo enriquecen la lista, no deciden qué se muestra.
+  const [mapDistances, setMapDistances] = useState<Record<string, number>>({});
 
   useEffect(() => {
     let active = true;
@@ -86,27 +102,38 @@ export default function ExploreClient({ mapboxAccessToken = "" }: ExploreClientP
   }, []);
 
   const [semanticTutors, setSemanticTutors] = useState<Tutor[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
+  const [settledQuery, setSettledQuery] = useState("");
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   useEffect(() => {
     const query = activeSearch.trim();
     if (!query) {
       setSemanticTutors([]);
+      setSearchError(null);
+      setSettledQuery("");
       return;
     }
 
     let active = true;
-    setIsSearching(true);
+    setSearchError(null);
 
     (async () => {
       try {
+        // Sin .catch silencioso: un 503 del modelo de embeddings debe verse, no parecer "sin resultados".
         const res = await fetchApi<Tutor[] | TutorsResponse>(
           `/api/tutors/?q=${encodeURIComponent(query)}&limit=50`
-        ).catch(() => [] as Tutor[]);
+        );
         const list = Array.isArray(res) ? res : res?.tutors ?? [];
-        if (active) setSemanticTutors(list);
+        // Los resultados semánticos no traen nombre/avatar: se completan desde el perfil de usuario.
+        const enriched = await Promise.all(list.map(enrichTutor));
+        if (active) setSemanticTutors(enriched);
+      } catch (err) {
+        if (active) {
+          setSemanticTutors([]);
+          setSearchError(err instanceof Error ? err.message : "Error en la búsqueda");
+        }
       } finally {
-        if (active) setIsSearching(false);
+        if (active) setSettledQuery(query);
       }
     })();
 
@@ -115,12 +142,24 @@ export default function ExploreClient({ mapboxAccessToken = "" }: ExploreClientP
     };
   }, [activeSearch]);
 
+  // Hay una búsqueda en curso mientras la consulta activa no tenga respuesta todavía.
+  const isSearching = activeSearch.trim() !== settledQuery;
+
   const filteredTutors = useMemo(
     () => (activeSearch.trim() ? semanticTutors : tutors),
     [activeSearch, semanticTutors, tutors]
   );
 
-  const visibleTutors = mapPhase === 'found' && mapTutors.length > 0 ? mapTutors : filteredTutors;
+  // La lista sale SIEMPRE de filteredTutors (lo que respondió el backend); el mapa solo aporta distancias.
+  const visibleTutors = useMemo(() => {
+    const withDistance = filteredTutors.map((tutor) => ({
+      ...tutor,
+      distance_km: mapDistances[tutor.user_id] ?? tutor.distance_km,
+    }));
+    // Con búsqueda activa se conserva el orden por relevancia del backend.
+    if (activeSearch.trim()) return withDistance;
+    return withDistance.sort((a, b) => (a.distance_km ?? Infinity) - (b.distance_km ?? Infinity));
+  }, [activeSearch, filteredTutors, mapDistances]);
 
   return (
     <div className="flex h-full min-h-[calc(100vh-7rem)] gap-4">
@@ -170,7 +209,11 @@ export default function ExploreClient({ mapboxAccessToken = "" }: ExploreClientP
         {isSearching ? (<div className="rounded-xl border border-dashed border-border bg-[#ffffff] p-4 text-sm text-muted-foreground">
               Buscando...
             </div>
-          ): visibleTutors.length === 0 ? (
+          ) : searchError ? (
+            <div className="rounded-xl border border-dashed border-border bg-[#ffffff] p-4 text-sm text-muted-foreground">
+              No pudimos completar la búsqueda. Intenta de nuevo en unos segundos.
+            </div>
+          ) : visibleTutors.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border bg-[#ffffff] p-4 text-sm text-muted-foreground">
               No hay resultados para esta búsqueda.
             </div>
@@ -269,9 +312,16 @@ export default function ExploreClient({ mapboxAccessToken = "" }: ExploreClientP
             accessToken={mapboxAccessToken}
             topicFilter={activeSearch}
             searchResults={filteredTutors}
+            isSearching={isSearching}
             onTutorsFound={(nextTutors, phase) => {
-              setMapTutors(nextTutors);
-              setMapPhase(phase);
+              if (phase !== 'found') return;
+              setMapDistances(
+                Object.fromEntries(
+                  nextTutors
+                    .filter((tutor) => tutor.distance_km != null)
+                    .map((tutor) => [tutor.user_id, tutor.distance_km as number])
+                )
+              );
             }}
           />
         </div>

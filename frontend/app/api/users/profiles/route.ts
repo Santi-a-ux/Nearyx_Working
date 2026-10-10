@@ -20,7 +20,7 @@ export async function GET() {
       const response = NextResponse.json({ error: "Session expired" }, { status: 401 });
       response.cookies.set("token", "", {
         httpOnly: true,
-        secure: false,
+        secure: process.env.COOKIE_SECURE ? process.env.COOKIE_SECURE === "true" : process.env.NODE_ENV === "production",
         maxAge: 0,
         path: "/",
         sameSite: "lax",
@@ -59,7 +59,7 @@ export async function PUT(request: NextRequest) {
       const response = NextResponse.json({ error: "Session expired" }, { status: 401 });
       response.cookies.set("token", "", {
         httpOnly: true,
-        secure: false,
+        secure: process.env.COOKIE_SECURE ? process.env.COOKIE_SECURE === "true" : process.env.NODE_ENV === "production",
         maxAge: 0,
         path: "/",
         sameSite: "lax",

@@ -33,6 +33,8 @@ interface MapboxMapProps {
   accessToken?: string;
   topicFilter?: string;
   searchResults?: Tutor[];
+  /** true mientras el padre espera la respuesta de la búsqueda: el mapa no debe buscar nada. */
+  isSearching?: boolean;
   onTutorsFound?: (tutors: Tutor[], phase: 'searching' | 'found' | 'empty') => void;
 }
 
@@ -56,7 +58,7 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-export default function MapboxMap({ accessToken = '', topicFilter, searchResults, onTutorsFound }: MapboxMapProps) {
+export default function MapboxMap({ accessToken = '', topicFilter, searchResults, isSearching = false, onTutorsFound }: MapboxMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
@@ -65,6 +67,7 @@ export default function MapboxMap({ accessToken = '', topicFilter, searchResults
   const searchTutorsRef = useRef<(center: [number, number]) => Promise<void>>(async () => {});
   const searchRunIdRef = useRef(0);
   const watchIdRef = useRef<number | null>(null);
+  const hasFixRef = useRef(false);
 
   const [searchPhase, setSearchPhase] = useState<'idle' | 'searching' | 'found' | 'empty'>('idle');
   const [foundTutors, setFoundTutors] = useState<Tutor[]>([]);
@@ -304,6 +307,17 @@ export default function MapboxMap({ accessToken = '', topicFilter, searchResults
         return;
       }
 
+      // Hay una búsqueda activa: el backend ya filtró por tema. Nunca caer a la búsqueda por radio,
+      // que no lleva la query y traería expertos de cualquier materia.
+      if (topicFilter?.trim()) {
+        if (runId !== searchRunIdRef.current) return;
+        setFoundTutors([]);
+        setSearchPhase('empty');
+        onTutorsFound?.([], 'empty');
+        addStaticUserMarker(center);
+        return;
+      }
+
       for (const radius of RADII) {
         if (runId !== searchRunIdRef.current) return;
 
@@ -359,9 +373,10 @@ export default function MapboxMap({ accessToken = '', topicFilter, searchResults
   }, [searchTutors]);
 
   useEffect(() => {
+    if (isSearching) return; // esperar a que lleguen los resultados reales del backend
     if (!map.current || !map.current.loaded()) return;
     void searchTutorsRef.current(userLocationRef.current);
-  }, [topicFilter, searchResults]);
+  }, [topicFilter, searchResults, isSearching]);
 
   useEffect(() => {
     if (!hasMapboxToken || map.current || !mapContainer.current) return;
@@ -393,6 +408,10 @@ export default function MapboxMap({ accessToken = '', topicFilter, searchResults
       if (navigator.geolocation) {
         const onPosition = ({ coords }: GeolocationPosition) => {
           const center: [number, number] = [coords.longitude, coords.latitude];
+          // watchPosition dispara muchas veces: solo reaccionar si el usuario se movió >100 m.
+          const prev = userLocationRef.current;
+          if (hasFixRef.current && haversineKm(prev[1], prev[0], center[1], center[0]) < 0.1) return;
+          hasFixRef.current = true;
           userLocationRef.current = center;
           clearUserMarker();
           addUserMarker(center);
@@ -514,7 +533,9 @@ export default function MapboxMap({ accessToken = '', topicFilter, searchResults
                       <p className="text-base font-bold text-gray-900 dark:text-white">
                         {foundTutors.length} experto{foundTutors.length !== 1 ? 's' : ''}{topicFilter ? ` de ${topicFilter}` : ''} cerca
                       </p>
-                      <p className="mt-0.5 text-xs text-gray-400">En un radio de {currentRadius} km</p>
+                      <p className="mt-0.5 text-xs text-gray-400">
+                        {currentRadius > 0 ? `En un radio de ${currentRadius} km` : 'Resultados de tu búsqueda'}
+                      </p>
                     </div>
                     <div className="flex -space-x-2">
                       {foundTutors.slice(0, 4).map((tutor) => (
@@ -543,8 +564,12 @@ export default function MapboxMap({ accessToken = '', topicFilter, searchResults
 
               {searchPhase === 'empty' && (
                 <div className="py-2 text-center">
-                  <p className="font-semibold text-gray-700 dark:text-white/70">No encontramos expertos en tu zona</p>
-                  <p className="mt-1 text-sm text-gray-400">Buscamos hasta {currentRadius} km</p>
+                  <p className="font-semibold text-gray-700 dark:text-white/70">
+                    {topicFilter?.trim() ? `No encontramos expertos para "${topicFilter.trim()}"` : 'No encontramos expertos en tu zona'}
+                  </p>
+                  <p className="mt-1 text-sm text-gray-400">
+                    {topicFilter?.trim() ? 'Prueba con otras palabras o una materia más general.' : `Buscamos hasta ${currentRadius} km`}
+                  </p>
                   <button onClick={() => searchTutorsRef.current(userLocationRef.current)} className="mt-3 text-sm font-medium text-primary hover:underline">Buscar de nuevo</button>
                 </div>
               )}

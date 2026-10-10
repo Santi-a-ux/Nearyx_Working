@@ -24,7 +24,7 @@ export async function GET() {
       const nextResponse = NextResponse.json({ error: "Session expired" }, { status: 401 });
       nextResponse.cookies.set("token", "", {
         httpOnly: true,
-        secure: false,
+        secure: process.env.COOKIE_SECURE ? process.env.COOKIE_SECURE === "true" : process.env.NODE_ENV === "production",
         maxAge: 0,
         path: "/",
         sameSite: "lax",

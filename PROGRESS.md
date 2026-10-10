@@ -122,8 +122,6 @@
 - **Archivo Modificado**: [frontend/app/(main)/messages/page.tsx](frontend/app/(main)/messages/page.tsx)
 
 ### Datos de Prueba Confirmados:
-- **Usuario de Test**: estudiante1@test.com / password123
-- **Token JWT Sample**: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Nzc1ODM2NDUsInN1YiI6ImY5NWZmMzVhLTM3OTEtNDFhNS05NWU0LTZjOWQxODZiMWY1NyIsInJvbGUiOiJzdHVkZW50In0.ps24kYrEqSMRV6MK6vRU7n0XI_CxjIaTJ06Jlfo92mE`
 - **Endpoint Validation**: 
   - ✅ `/auth/login` - 200 OK, retorna token válido
   - ✅ `/users/me` - 200 OK, retorna perfil de usuario

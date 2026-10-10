@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       const expired = NextResponse.json({ error: "Sesión expirada. Inicia sesión de nuevo." }, { status: 401 });
       expired.cookies.set("token", "", {
         httpOnly: true,
-        secure: false,
+        secure: process.env.COOKIE_SECURE ? process.env.COOKIE_SECURE === "true" : process.env.NODE_ENV === "production",
         maxAge: 0,
         path: "/",
         sameSite: "lax",
