@@ -36,7 +36,7 @@ export default async function MainLayout({
     <div className="min-h-screen bg-background text-foreground">
       <MainTopbar userLabel={userLabel} avatarUrl={avatarUrl} logoutAction={logoutAction} />
       <AppSidebar role={authUser?.role} />
-      <main className="min-h-screen pt-14 pl-[220px]">
+      <main className="min-h-screen pt-14 pb-16 md:pb-0 md:pl-[220px]">
         <div className="min-h-[calc(100vh-3.5rem)] bg-background p-4 text-foreground lg:p-6">
           {children}
         </div>

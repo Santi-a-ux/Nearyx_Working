@@ -162,9 +162,9 @@ export default function ExploreClient({ mapboxAccessToken = "" }: ExploreClientP
   }, [activeSearch, filteredTutors, mapDistances]);
 
   return (
-    <div className="flex h-full min-h-[calc(100vh-7rem)] gap-4">
+    <div className="flex h-full min-h-[calc(100vh-7rem)] flex-col gap-4 md:flex-row">
       <aside
-          className="w-60 shrink-0 rounded-2xl border border-border bg-[#F8FBFF] p-4 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          className="flex max-h-72 w-full shrink-0 flex-col rounded-2xl border border-border bg-[#F8FBFF] p-4 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary md:h-[calc(100dvh-10rem)] md:max-h-none md:min-h-[480px] md:w-60"
           tabIndex={0}
           onMouseEnter={() =>
             speak(
@@ -205,7 +205,7 @@ export default function ExploreClient({ mapboxAccessToken = "" }: ExploreClientP
 
 
 
-        <div className="mt-4 max-h-[calc(100vh-20rem)] space-y-3 overflow-auto pr-1">
+        <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-auto pr-1">
         {isSearching ? (<div className="rounded-xl border border-dashed border-border bg-[#ffffff] p-4 text-sm text-muted-foreground">
               Buscando...
             </div>
@@ -247,7 +247,7 @@ export default function ExploreClient({ mapboxAccessToken = "" }: ExploreClientP
                   }
                   onBlur={stop}
                 >
-                  <div className="flex items-start gap-3">
+                  <div className="mt-4 max-h-60 space-y-3 overflow-auto pr-1 md:max-h-[calc(100vh-20rem)]">
                     <UserAvatar
                       name={tutor.display_name || tutor.full_name || "Experto"}
                       size="sm"
@@ -304,8 +304,8 @@ export default function ExploreClient({ mapboxAccessToken = "" }: ExploreClientP
       </aside>
 
       <section
-        className="relative min-w-0 flex-1 overflow-hidden rounded-2xl border border-border bg-white shadow-sm"
-        style={{ height: "calc(100vh - 10rem)", minHeight: 480 }}
+        className="relative min-h-[60vh] min-w-0 flex-1 overflow-hidden rounded-2xl border border-border bg-white shadow-sm md:min-h-0"
+        style={{ height: "calc(100dvh - 10rem)", minHeight: 480 }}
       >
         <div className="h-full w-full bg-background">
           <MapboxMap
