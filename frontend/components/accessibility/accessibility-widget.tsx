@@ -49,7 +49,7 @@ export function AccessibilityWidget() {
   }, [open]);
 
   return (
-    <div ref={panelRef} className="fixed bottom-5 right-5 z-[100] flex flex-col items-end gap-2">
+    <div ref={panelRef} className="fixed bottom-20 right-4 z-[100] flex flex-col items-end gap-2 md:bottom-5 md:right-5">
       {open ? (
         <div
           role="dialog"

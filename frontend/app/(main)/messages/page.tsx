@@ -76,6 +76,7 @@ function MessagesPageContent() {
   const [bookingTime, setBookingTime] = useState("");
   const [bookingDurationMinutes, setBookingDurationMinutes] = useState(60);
   const [bookingSubmitting, setBookingSubmitting] = useState(false);
+  const [showChatMobile, setShowChatMobile] = useState(Boolean(initialReceiverId));
   const { speak, stop } = useScreenReader();
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -191,6 +192,7 @@ function MessagesPageContent() {
     if (!participantId || !isUuid(participantId)) return;
 
     setReceiverId(participantId);
+    setShowChatMobile(true);
     setReceiverProfile(null);
     await loadReceiverProfile(participantId);
     await ensureConversation(participantId);
@@ -451,7 +453,7 @@ function MessagesPageContent() {
   return (
     <div className="flex h-full min-h-0 w-full overflow-hidden bg-[#ffffff]">
       <div className="flex h-full min-h-0 w-full gap-4 p-3 lg:p-4">
-        <aside className={`flex min-h-0 w-[360px] flex-col overflow-hidden ${appPanelSoftClass}`}>
+        <aside className={`min-h-0 w-full flex-col overflow-hidden md:flex md:w-[360px] md:shrink-0 ${showChatMobile ? "hidden" : "flex"} ${appPanelSoftClass}`}>
           <div
                 tabIndex={0}
                 onFocus={() =>
@@ -581,7 +583,7 @@ function MessagesPageContent() {
           </div>
         </aside>
 
-        <section className={`flex min-w-0 flex-1 flex-col overflow-hidden ${appPanelClass}`}>
+        <section className={`min-w-0 flex-1 flex-col overflow-hidden md:flex ${showChatMobile ? "flex" : "hidden"} ${appPanelClass}`}>
          <div
             tabIndex={0}
             onFocus={() =>
