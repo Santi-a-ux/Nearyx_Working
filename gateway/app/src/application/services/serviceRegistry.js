@@ -3,8 +3,11 @@ export class ServiceRegistry {
   constructor(services) {
     this.targets = new Map(
       Object.entries(services).map(([name, url]) => {
-        const { hostname, port, protocol } = new URL(url);
-        return [name, { name, hostname, port: Number(port) || (protocol === 'https:' ? 443 : 80) }];
+        const { hostname, host, port, protocol } = new URL(url);
+        if (protocol !== 'http:' && protocol !== 'https:') {
+          throw new Error(`Unsupported protocol "${protocol}" for service "${name}" (${url}): use http:// or https://`);
+        }
+        return [name, { name, protocol, hostname, host, port: Number(port) || (protocol === 'https:' ? 443 : 80) }];
       }),
     );
   }

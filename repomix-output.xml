@@ -22952,236 +22952,6 @@ function PostCard({ post, toneIndex }: { post: FeedPost; toneIndex: number }) {
 }
 </file>
 
-<file path="docker-compose.yml">
-services:
-
-  # ─── INFRAESTRUCTURA ────────────────────────────────────────────────────────
-
-  redis:
-    image: redis:7-alpine
-    container_name: ttp-redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-
-  # ─── SERVICIOS DE DOMINIO ───────────────────────────────────────────────────
-
-  auth-service:
-    build:
-      context: ./services/auth-service
-      dockerfile: Dockerfile
-    container_name: ttp-auth
-    restart: unless-stopped
-    ports:
-      - "8001:8001"
-    env_file: .env
-    environment:
-      - PORT=8001
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  user-service:
-    build:
-      context: ./services/user-service
-      dockerfile: Dockerfile
-    container_name: ttp-users
-    restart: unless-stopped
-    ports:
-      - "8002:8002"
-    env_file: .env
-    environment:
-      - PORT=8002
-    depends_on:
-      auth-service:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  tutor-service:
-    build:
-      context: ./services/tutor-service
-      dockerfile: Dockerfile
-    container_name: ttp-tutors
-    restart: unless-stopped
-    ports:
-      - "8003:8003"
-    env_file: .env
-    environment:
-      - PORT=8003
-      - SEMANTIC_ABSOLUTE_CEILING=${SEMANTIC_ABSOLUTE_CEILING}
-      - SEMANTIC_RELATIVE_MARGIN=${SEMANTIC_RELATIVE_MARGIN}
-      - SEMANTIC_MIN_SEPARATION=${SEMANTIC_MIN_SEPARATION}
-    volumes:
-      # Embedding model (~470 MB, downloaded on first start); keeps it across rebuilds
-      - tutor_model_cache:/app/.cache
-    depends_on:
-      auth-service:
-        condition: service_healthy
-      user-service:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  geo-service:
-    build:
-      context: ./services/geo-service
-      dockerfile: Dockerfile
-    container_name: ttp-geo
-    restart: unless-stopped
-    ports:
-      - "8004:8004"
-    env_file: .env
-    environment:
-      - PORT=8004
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  chat-service:
-    build:
-      context: ./services/chat-service
-      dockerfile: Dockerfile
-    container_name: ttp-chat
-    restart: unless-stopped
-    ports:
-      - "8005:8005"
-    env_file: .env
-    environment:
-      - PORT=8005
-    depends_on:
-      redis:
-        condition: service_healthy
-      auth-service:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  booking-service:
-    build:
-      context: ./services/booking-service
-      dockerfile: Dockerfile
-    container_name: ttp-bookings
-    restart: unless-stopped
-    ports:
-      - "8007:8007"
-    env_file: .env
-    environment:
-      - PORT=8007
-    depends_on:
-      auth-service:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8007/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  media-service:
-    build:
-      context: ./services/media-service
-      dockerfile: Dockerfile
-    container_name: ttp-media
-    restart: unless-stopped
-    ports:
-      - "8006:8006"
-    env_file: .env
-    environment:
-      - PORT=8006
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # ─── API GATEWAY ────────────────────────────────────────────────────────────
-
-  gateway:
-    build:
-      context: ./gateway
-      dockerfile: Dockerfile
-    container_name: ttp-gateway
-    restart: unless-stopped
-    ports:
-      - "8000:8000"
-    env_file: .env
-    environment:
-      - PORT=8000
-    depends_on:
-      redis:
-        condition: service_healthy
-      auth-service:
-        condition: service_healthy
-      user-service:
-        condition: service_healthy
-      tutor-service:
-        condition: service_healthy
-      geo-service:
-        condition: service_healthy
-      media-service:
-        condition: service_healthy
-      chat-service:
-        condition: service_healthy
-      booking-service:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # ─── FRONTEND ───────────────────────────────────────────────────────────────
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_MAPBOX_TOKEN: ${MAPBOX_PUBLIC_TOKEN:-${NEXT_PUBLIC_MAPBOX_TOKEN}}
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
-        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-ws://localhost:8000}
-        NEXT_PUBLIC_FORCE_MEDELLIN: ${NEXT_PUBLIC_FORCE_MEDELLIN:-0}
-    container_name: ttp-frontend
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    # Solo env_file: evita que `environment:` vacíe variables si falla la sustitución ${...}
-    env_file:
-      - .env
-    depends_on:
-      gateway:
-        condition: service_healthy
-
-volumes:
-  redis_data:
-  media_files:
-  tutor_model_cache:
-
-networks:
-  default:
-    name: ttp-network
-</file>
-
 <file path="frontend/components/map/MapboxMap.tsx">
 'use client';
 
@@ -23789,6 +23559,236 @@ function TutorMiniCard({ tutor }: TutorMiniCardProps) {
     </Link>
   );
 }
+</file>
+
+<file path="docker-compose.yml">
+services:
+
+  # ─── INFRAESTRUCTURA ────────────────────────────────────────────────────────
+
+  redis:
+    image: redis:7-alpine
+    container_name: ttp-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ─── SERVICIOS DE DOMINIO ───────────────────────────────────────────────────
+
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    container_name: ttp-auth
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    env_file: .env
+    environment:
+      - PORT=8001
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: Dockerfile
+    container_name: ttp-users
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    env_file: .env
+    environment:
+      - PORT=8002
+    depends_on:
+      auth-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  tutor-service:
+    build:
+      context: ./services/tutor-service
+      dockerfile: Dockerfile
+    container_name: ttp-tutors
+    restart: unless-stopped
+    ports:
+      - "8003:8003"
+    env_file: .env
+    environment:
+      - PORT=8003
+      - SEMANTIC_ABSOLUTE_CEILING=${SEMANTIC_ABSOLUTE_CEILING}
+      - SEMANTIC_RELATIVE_MARGIN=${SEMANTIC_RELATIVE_MARGIN}
+      - SEMANTIC_MIN_SEPARATION=${SEMANTIC_MIN_SEPARATION}
+    volumes:
+      # Embedding model (~470 MB, downloaded on first start); keeps it across rebuilds
+      - tutor_model_cache:/app/.cache
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  geo-service:
+    build:
+      context: ./services/geo-service
+      dockerfile: Dockerfile
+    container_name: ttp-geo
+    restart: unless-stopped
+    ports:
+      - "8004:8004"
+    env_file: .env
+    environment:
+      - PORT=8004
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  chat-service:
+    build:
+      context: ./services/chat-service
+      dockerfile: Dockerfile
+    container_name: ttp-chat
+    restart: unless-stopped
+    ports:
+      - "8005:8005"
+    env_file: .env
+    environment:
+      - PORT=8005
+    depends_on:
+      redis:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  booking-service:
+    build:
+      context: ./services/booking-service
+      dockerfile: Dockerfile
+    container_name: ttp-bookings
+    restart: unless-stopped
+    ports:
+      - "8007:8007"
+    env_file: .env
+    environment:
+      - PORT=8007
+    depends_on:
+      auth-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8007/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  media-service:
+    build:
+      context: ./services/media-service
+      dockerfile: Dockerfile
+    container_name: ttp-media
+    restart: unless-stopped
+    ports:
+      - "8006:8006"
+    env_file: .env
+    environment:
+      - PORT=8006
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── API GATEWAY ────────────────────────────────────────────────────────────
+
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    container_name: ttp-gateway
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      - PORT=8000
+    depends_on:
+      redis:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+      tutor-service:
+        condition: service_healthy
+      geo-service:
+        condition: service_healthy
+      media-service:
+        condition: service_healthy
+      chat-service:
+        condition: service_healthy
+      booking-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── FRONTEND ───────────────────────────────────────────────────────────────
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_MAPBOX_TOKEN: ${MAPBOX_PUBLIC_TOKEN:-${NEXT_PUBLIC_MAPBOX_TOKEN}}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-ws://localhost:8000}
+        NEXT_PUBLIC_FORCE_MEDELLIN: ${NEXT_PUBLIC_FORCE_MEDELLIN:-0}
+    container_name: ttp-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    # Solo env_file: evita que `environment:` vacíe variables si falla la sustitución ${...}
+    env_file:
+      - .env
+    depends_on:
+      gateway:
+        condition: service_healthy
+
+volumes:
+  redis_data:
+  media_files:
+  tutor_model_cache:
+
+networks:
+  default:
+    name: ttp-network
 </file>
 
 <file path="frontend/app/(main)/explore/explore-client.tsx">

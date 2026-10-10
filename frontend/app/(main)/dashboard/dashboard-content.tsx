@@ -83,6 +83,7 @@ async function fetchFeedPosts(limit = 20, offset = 0): Promise<FeedResponse> {
 }
 
 async function createFeedPost(content: string, imageUrl?: string, authorRole?: FeedAuthorRole) {
+  
   const response = await fetch("/api/feed/posts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

@@ -26,7 +26,7 @@ env/
 .coverage
 htmlcov/
 *.log
-
+repomix-output.xml
 # ─── NODE / NEXT.JS ─────────────────────────────────────────────────────────────
 node_modules/
 .next/
