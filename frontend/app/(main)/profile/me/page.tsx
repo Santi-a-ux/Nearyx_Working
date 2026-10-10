@@ -85,7 +85,7 @@ export default async function MyProfilePage() {
       {userProfile?.user_id && (
         <div className="pointer-events-none fixed inset-0 z-[-1] overflow-hidden">
           {/* Always full opacity — this is the background layer */}
-          <NetworkGraphBackground userId={userProfile.user_id} />
+          <NetworkGraphBackground userId={userProfile.user_id} verticalOffset={0}/>
         </div>
       )}
 
@@ -95,7 +95,7 @@ export default async function MyProfilePage() {
       {network && network.edges.length > 0 && (
         <label
           htmlFor="network-toggle"
-          className={`${buttonVariants({ variant: "default" })} fixed bottom-6 left-1/2 -translate-x-1/2 z-50 shadow-lg cursor-pointer select-none`}
+          className={`${buttonVariants({ variant: "default" })} fixed bottom-20 left-1/2 -translate-x-1/2 z-50 shadow-lg cursor-pointer select-none md:bottom-6`}
         >
           <span className="peer-checked:hidden">Ver grafo completo</span>
           <span className="hidden peer-checked:inline">Ocultar grafo</span>

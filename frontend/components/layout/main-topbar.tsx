@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NotificationsBell } from "@/components/layout/notifications-bell";
 import { UserAvatar } from "@/components/user-avatar";
-import {useScreenReader } from "@/components/providers/ScreenReaderContext";
+import { useScreenReader } from "@/components/providers/ScreenReaderContext";
 
 function isDashboardPath(pathname: string) {
   return pathname === "/dashboard" || pathname.startsWith("/dashboard/");
@@ -27,7 +27,7 @@ export function MainTopbar({
   const [searchValue, setSearchValue] = useState("");
 
 
-   const { isActive, toggleReader } = useScreenReader();
+  const { isActive, toggleReader } = useScreenReader();
 
   useEffect(() => {
     if (!showFeedSearch) {
@@ -82,15 +82,12 @@ export function MainTopbar({
 
   return (
     <header
-      className={
-        showFeedSearch
-          ? "fixed inset-x-0 top-0 z-50 grid h-14 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 border-b border-[#8e939b] bg-[#8e939b] px-4"
-          : "fixed inset-x-0 top-0 z-50 flex h-14 items-center justify-between gap-4 border-b border-[#8e939b] bg-[#8e939b] px-4"
-      }
+      className={`fixed inset-x-0 top-0 z-50 flex h-14 items-center justify-between gap-2 border-b border-[#8e939b] bg-[#8e939b] px-2 sm:px-4 ${showFeedSearch ? "md:grid md:grid-cols-[auto_minmax(0,1fr)_auto] md:gap-4" : ""
+        }`}
     >
-      <div className="flex min-w-0 items-center gap-2">
-        <img src="/nearyx-azul.svg" alt="Nearyx" className="h-9 w-auto max-w-[9rem] object-contain" />
-        <p className="truncate text-base font-bold uppercase tracking-[0.14em] text-[#000000]">Nearyx</p>
+      <div className="flex shrink-0 items-center gap-2">
+        <img src="/nearyx-azul.svg" alt="Nearyx" className="h-8 w-auto max-w-[9rem] object-contain sm:h-9" />
+        <p className="hidden truncate text-base font-bold uppercase tracking-[0.14em] text-[#000000] sm:block">Nearyx</p>
       </div>
 
       {showFeedSearch ? (
@@ -118,10 +115,7 @@ export function MainTopbar({
         </form>
       ) : null}
 
-      <div className="flex items-center justify-end gap-2 justify-self-end">
-
-        {/* boton del lector de pantalla   */}
-
+      <div className="flex shrink-0 items-center justify-end gap-1.5 sm:gap-2 md:justify-self-end">
         <Button
           type="button"
           variant="ghost"
@@ -129,33 +123,35 @@ export function MainTopbar({
           onClick={toggleReader}
           title={isActive ? "Desactivar lector de voz" : "Activar lector de voz"}
           aria-label={isActive ? "Desactivar lector de voz" : "Activar lector de voz"}
-          className={`h-9 rounded-lg border border-border px-3 font-semibold transition-colors ${
-            isActive 
-              ? "bg-[#22c55e] text-white hover:bg-[#16a34a] hover:text-white" 
-              : "bg-[#C6E2FE] text-[#000000] hover:bg-[rgba(149,201,252,0.88)]"
-          }`}
+          className={`h-9 rounded-lg border border-border px-2 font-semibold transition-colors md:px-3 ${isActive
+            ? "bg-[#22c55e] text-white hover:bg-[#16a34a] hover:text-white"
+            : "bg-[#C6E2FE] text-[#000000] hover:bg-[rgba(149,201,252,0.88)]"
+            }`}
         >
-          {isActive ? <Volume2 className="mr-1.5 h-4 w-4 animate-pulse" /> : <VolumeX className="mr-1.5 h-4 w-4" />}
-          {isActive ? "Voz Activa" : "Activar Voz"}
+          {isActive ? <Volume2 className="h-4 w-4 animate-pulse md:mr-1.5" /> : <VolumeX className="h-4 w-4 md:mr-1.5" />}
+          <span className="hidden md:inline">{isActive ? "Voz Activa" : "Activar Voz"}</span>
         </Button>
 
         <NotificationsBell />
-        <div className="flex items-center gap-2 rounded-full border border-[#F8FBFF] bg-[#F8FBFF] px-2 py-1.5">
+
+        <div className="flex items-center gap-2 rounded-full border border-[#F8FBFF] bg-[#F8FBFF] px-1.5 py-1 sm:px-2 sm:py-1.5">
           <UserAvatar name={userLabel} size="sm" avatarUrl={avatarUrl || undefined} />
           <div className="hidden min-w-0 sm:block">
             <p className="truncate text-xs font-bold text-[var(--foreground)]">{userLabel}</p>
             <p className="text-[10px] text-[var(--success)]">En línea</p>
           </div>
         </div>
+
         <form action={logoutAction}>
           <Button
             type="submit"
             variant="ghost"
             size="sm"
-            className="h-9 rounded-lg border border-border bg-[#C6E2FE] px-3 text-[#000000] hover:bg-[rgba(149,201,252,0.88)] hover:text-[#10314f]"
+            aria-label="Salir"
+            className="h-9 rounded-lg border border-border bg-[#C6E2FE] px-2 text-[#000000] hover:bg-[rgba(149,201,252,0.88)] hover:text-[#10314f] sm:px-3"
           >
-            <LogOut className="mr-2 h-4 w-4" />
-            Salir
+            <LogOut className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Salir</span>
           </Button>
         </form>
       </div>
