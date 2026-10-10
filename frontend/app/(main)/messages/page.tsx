@@ -7,12 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { UserAvatar } from "@/components/user-avatar";
-import { AlertCircle, CalendarDays, Loader2, Search, Send } from "lucide-react";
+import { AlertCircle, CalendarDays, Loader2, Search, Send, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { fetchApi } from "@/lib/api";
 import { appPanelClass, appPanelSoftClass } from "@/lib/surface-styles";
 import { useScreenReader } from "@/components/providers/ScreenReaderContext";
+
 
 /* ---------------- TYPES (sin cambios) ---------------- */
 
@@ -274,7 +275,7 @@ function MessagesPageContent() {
                 is_read: false,
               },
             ]);
-              if (senderId !== meId && messageContent) {
+            if (senderId !== meId && messageContent) {
               speak(`Nuevo mensaje de ${resolvedName}: ${messageContent}`);
             }
           } catch (error) {
@@ -441,10 +442,10 @@ function MessagesPageContent() {
       const err = error as Error;
       toast.error(err.message || "No se pudo crear la reserva");
       speak(
-          err.message
-            ? `No se pudo crear la reserva. ${err.message}`
-            : "No se pudo crear la reserva."
-        );
+        err.message
+          ? `No se pudo crear la reserva. ${err.message}`
+          : "No se pudo crear la reserva."
+      );
     } finally {
       setBookingSubmitting(false);
     }
@@ -455,19 +456,17 @@ function MessagesPageContent() {
       <div className="flex h-full min-h-0 w-full gap-4 p-3 lg:p-4">
         <aside className={`min-h-0 w-full flex-col overflow-hidden md:flex md:w-[360px] md:shrink-0 ${showChatMobile ? "hidden" : "flex"} ${appPanelSoftClass}`}>
           <div
-                tabIndex={0}
-                onFocus={() =>
-                  speak(
-                    `Sección Mensajes. Conversaciones. ${
-                      conversations.length
-                    } conversaciones disponibles. Estado de conexión: ${
-                      isConnected ? "en línea" : "desconectado"
-                    }.`
-                  )
-                }
-                onBlur={stop}
-                className="flex-shrink-0 rounded-md border-b border-border px-5 py-4 focus:outline-none focus:ring-2 focus:ring-primary"
-              >
+            tabIndex={0}
+            onFocus={() =>
+              speak(
+                `Sección Mensajes. Conversaciones. ${conversations.length
+                } conversaciones disponibles. Estado de conexión: ${isConnected ? "en línea" : "desconectado"
+                }.`
+              )
+            }
+            onBlur={stop}
+            className="flex-shrink-0 rounded-md border-b border-border px-5 py-4 focus:outline-none focus:ring-2 focus:ring-primary"
+          >
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-[11px] uppercase tracking-[0.26em] text-muted-foreground">
@@ -479,11 +478,10 @@ function MessagesPageContent() {
               </div>
 
               <span
-                className={`rounded-full px-3 py-1 text-[11px] font-medium ${
-                  isConnected
+                className={`rounded-full px-3 py-1 text-[11px] font-medium ${isConnected
                     ? "bg-semantic-success/10 text-semantic-success"
                     : "bg-muted text-muted-foreground"
-                }`}
+                  }`}
               >
                 {isConnected ? "En línea" : "Desconectado"}
               </span>
@@ -508,12 +506,12 @@ function MessagesPageContent() {
               <div className="space-y-2 p-2.5">
                 {conversations.length === 0 ? (
                   <div
-                  tabIndex={0}
-                  onFocus={() => speak("No hay conversaciones aún.")}
-                  onBlur={stop}
-                  aria-label="No hay conversaciones aún"
-                  className="flex h-40 items-center justify-center rounded-xl border border-dashed border-border bg-[#ffffff] px-6 text-center focus:outline-none focus:ring-2 focus:ring-primary"
-                >
+                    tabIndex={0}
+                    onFocus={() => speak("No hay conversaciones aún.")}
+                    onBlur={stop}
+                    aria-label="No hay conversaciones aún"
+                    className="flex h-40 items-center justify-center rounded-xl border border-dashed border-border bg-[#ffffff] px-6 text-center focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
                     <div className="space-y-2">
                       <AlertCircle className="mx-auto h-5 w-5 text-muted-foreground" />
                       <p className="text-sm text-muted-foreground">No hay conversaciones aún</p>
@@ -529,25 +527,22 @@ function MessagesPageContent() {
                         key={c.id}
                         onClick={() => openConversation(partnerId)}
                         onFocus={() =>
-                              speak(
-                                `Conversación con ${c.partnerName}. ${
-                                  c.last_message
-                                    ? `Último mensaje: ${c.last_message}.`
-                                    : "Sin mensajes."
-                                }`
-                              )
-                            }
-                            onBlur={stop}
-                            aria-label={`Conversación con ${c.partnerName}. ${
-                              c.last_message
-                                ? `Último mensaje: ${c.last_message}.`
-                                : "Sin mensajes."
-                            }`}
-                        className={`group w-full rounded-xl border px-4 py-3 text-left transition-all duration-200 ${
-                          isActive
+                          speak(
+                            `Conversación con ${c.partnerName}. ${c.last_message
+                              ? `Último mensaje: ${c.last_message}.`
+                              : "Sin mensajes."
+                            }`
+                          )
+                        }
+                        onBlur={stop}
+                        aria-label={`Conversación con ${c.partnerName}. ${c.last_message
+                            ? `Último mensaje: ${c.last_message}.`
+                            : "Sin mensajes."
+                          }`}
+                        className={`group w-full rounded-xl border px-4 py-3 text-left transition-all duration-200 ${isActive
                             ? "border-[#95C9FC] bg-[#C6E2FE] shadow-sm"
                             : "border-transparent hover:border-border hover:bg-[#F8FBFF]"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-start gap-3">
                           <UserAvatar name={c.partnerName} size="mlg" avatarUrl={c.partnerAvatar} />
@@ -584,14 +579,13 @@ function MessagesPageContent() {
         </aside>
 
         <section className={`min-w-0 flex-1 flex-col overflow-hidden md:flex ${showChatMobile ? "flex" : "hidden"} ${appPanelClass}`}>
-         <div
+          <div
             tabIndex={0}
             onFocus={() =>
               speak(
                 receiverId && isUuid(receiverId)
-                  ? `Chat con ${resolvedName}. ${
-                      conversationId ? "En línea." : "Selecciona un chat."
-                    }`
+                  ? `Chat con ${resolvedName}. ${conversationId ? "En línea." : "Selecciona un chat."
+                  }`
                   : "No hay ninguna conversación seleccionada."
               )
             }
@@ -600,6 +594,16 @@ function MessagesPageContent() {
           >
             <div className="flex items-center justify-between gap-4">
               <div className="flex min-w-0 items-center gap-3">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 md:hidden"
+                  aria-label="Volver a conversaciones"
+                  onClick={() => setShowChatMobile(false)}
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
                 <UserAvatar name={resolvedName} size="mlg" avatarUrl={resolvedAvatar} />
 
                 <div className="min-w-0">
@@ -614,32 +618,32 @@ function MessagesPageContent() {
               </div>
 
               <div className="flex shrink-0 items-center gap-2">
-              {receiverId && isUuid(receiverId) ? (
-                <>
-                  <Link
-                    href={`/profile/${receiverId}`}
-                    className="inline-flex h-10 items-center rounded-full border border-[#2563EB]/20 bg-[#EEF6FF] px-4 text-sm font-semibold text-[#2563EB] transition-colors hover:bg-[#E0EFFF]"
-                    aria-label={`Ver perfil de ${resolvedName}`}
-                    onFocus={() => speak(`Botón. Ver perfil de ${resolvedName}.`)}
-                    onBlur={stop}
-                  >
-                    Ver perfil
-                  </Link>
-                  <Button
-                    type="button"
-                    onClick={openBookingDialog}
-                    aria-label={`Reservar una sesión con ${resolvedName}`}
-                    onFocus={() =>
-                      speak(`Botón. Reservar una sesión con ${resolvedName}.`)
-                    }
-                    onBlur={stop}
-                    className="h-10 rounded-full bg-[#95C9FC] px-4 text-sm font-semibold text-[#10314F] hover:bg-[#7FB8F5]"
-                  >
-                    <CalendarDays className="mr-2 h-4 w-4" />
-                    Reservar
-                  </Button>
-                </>
-              ) : null}
+                {receiverId && isUuid(receiverId) ? (
+                  <>
+                    <Link
+                      href={`/profile/${receiverId}`}
+                      className="inline-flex h-10 items-center rounded-full border border-[#2563EB]/20 bg-[#EEF6FF] px-4 text-sm font-semibold text-[#2563EB] transition-colors hover:bg-[#E0EFFF]"
+                      aria-label={`Ver perfil de ${resolvedName}`}
+                      onFocus={() => speak(`Botón. Ver perfil de ${resolvedName}.`)}
+                      onBlur={stop}
+                    >
+                      Ver perfil
+                    </Link>
+                    <Button
+                      type="button"
+                      onClick={openBookingDialog}
+                      aria-label={`Reservar una sesión con ${resolvedName}`}
+                      onFocus={() =>
+                        speak(`Botón. Reservar una sesión con ${resolvedName}.`)
+                      }
+                      onBlur={stop}
+                      className="h-10 rounded-full bg-[#95C9FC] px-4 text-sm font-semibold text-[#10314F] hover:bg-[#7FB8F5]"
+                    >
+                      <CalendarDays className="mr-2 h-4 w-4" />
+                      Reservar
+                    </Button>
+                  </>
+                ) : null}
               </div>
             </div>
           </div>
@@ -649,12 +653,12 @@ function MessagesPageContent() {
               <div className="flex flex-col gap-4">
                 {messages.length === 0 ? (
                   <div
-                  tabIndex={0}
-                  onFocus={() => speak("No hay mensajes. Inicia una conversación.")}
-                  onBlur={stop}
-                  aria-label="No hay mensajes. Inicia una conversación."
-                  className="flex min-h-[24rem] items-center justify-center rounded-xl border border-dashed border-border bg-[#F8FBFF] px-6 text-center focus:outline-none focus:ring-2 focus:ring-primary"
-                >
+                    tabIndex={0}
+                    onFocus={() => speak("No hay mensajes. Inicia una conversación.")}
+                    onBlur={stop}
+                    aria-label="No hay mensajes. Inicia una conversación."
+                    className="flex min-h-[24rem] items-center justify-center rounded-xl border border-dashed border-border bg-[#F8FBFF] px-6 text-center focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
                     <p className="text-sm text-muted-foreground">Inicia una conversación</p>
                   </div>
                 ) : (
@@ -676,9 +680,8 @@ function MessagesPageContent() {
                         }
                         onBlur={stop}
                         aria-label={`${isMe ? "Tú" : resolvedName} dijo: ${m.content}. Hora: ${time}.`}
-                        className={`flex items-end gap-3 rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${
-                          isMe ? "flex-row-reverse" : ""
-                        }`}
+                        className={`flex items-end gap-3 rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${isMe ? "flex-row-reverse" : ""
+                          }`}
                       >
                         {!isMe && (
                           <UserAvatar name={resolvedName} size="sm" avatarUrl={resolvedAvatar} />
@@ -686,11 +689,10 @@ function MessagesPageContent() {
 
                         <div className={`flex max-w-[min(34rem,78%)] flex-col ${isMe ? "items-end" : "items-start"}`}>
                           <div
-                            className={`rounded-2xl border px-4 py-3 shadow-sm ${
-                              isMe
+                            className={`rounded-2xl border px-4 py-3 shadow-sm ${isMe
                                 ? "rounded-br-md border-[#95C9FC] bg-[#95C9FC] text-[#10314f]"
                                 : "rounded-bl-md border-border bg-[#F8FBFF] text-foreground"
-                            }`}
+                              }`}
                           >
                             <p className="break-words text-sm leading-6">{m.content}</p>
                           </div>
@@ -713,25 +715,25 @@ function MessagesPageContent() {
           <div className="flex-shrink-0 border-t border-border px-4 py-4 lg:px-5">
             <form className="flex items-end gap-3" onSubmit={handleSendMessage}>
               <Input
-              value={newMessage}
-              onChange={(event) => setNewMessage(event.target.value)}
-              onFocus={() => speak("Campo de mensaje. Escribe un mensaje.")}
-              onBlur={stop}
-              aria-label="Escribe un mensaje"
-              className="h-12 rounded-xl border-border bg-[#F8FBFF] px-4 text-foreground placeholder:text-muted-foreground focus-visible:ring-primary/20"
-            />
-            <Button
-              type="submit"
-              aria-label="Enviar mensaje"
-              onFocus={() => speak("Botón. Enviar mensaje.")}
-              onBlur={stop}
-              className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-[#CCFBF1] text-[#0F766E] transition-all hover:bg-[#B2F5EA]"
-            >
-                <Send
-                aria-hidden="true"
-                className="h-4 w-4"
+                value={newMessage}
+                onChange={(event) => setNewMessage(event.target.value)}
+                onFocus={() => speak("Campo de mensaje. Escribe un mensaje.")}
+                onBlur={stop}
+                aria-label="Escribe un mensaje"
+                className="h-12 rounded-xl border-border bg-[#F8FBFF] px-4 text-foreground placeholder:text-muted-foreground focus-visible:ring-primary/20"
               />
-             </Button>
+              <Button
+                type="submit"
+                aria-label="Enviar mensaje"
+                onFocus={() => speak("Botón. Enviar mensaje.")}
+                onBlur={stop}
+                className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-[#CCFBF1] text-[#0F766E] transition-all hover:bg-[#B2F5EA]"
+              >
+                <Send
+                  aria-hidden="true"
+                  className="h-4 w-4"
+                />
+              </Button>
             </form>
           </div>
         </section>
@@ -755,27 +757,27 @@ function MessagesPageContent() {
           <div className="grid gap-4 py-2">
             <div className="grid gap-2">
               <label
-              className="text-sm font-medium text-foreground"
-              htmlFor="booking-date"
-            >
-              Fecha
-            </label>
+                className="text-sm font-medium text-foreground"
+                htmlFor="booking-date"
+              >
+                Fecha
+              </label>
 
-            <Input
-              id="booking-date"
-              type="date"
-              aria-label="Fecha de la reserva"
-              value={bookingDate}
-              onChange={(event) => setBookingDate(event.target.value)}
-              onFocus={() =>
-                speak(
-                  bookingDate
-                    ? `Fecha de la reserva: ${bookingDate}.`
-                    : "Selecciona la fecha de la reserva."
-                )
-              }
-              onBlur={stop}
-            />
+              <Input
+                id="booking-date"
+                type="date"
+                aria-label="Fecha de la reserva"
+                value={bookingDate}
+                onChange={(event) => setBookingDate(event.target.value)}
+                onFocus={() =>
+                  speak(
+                    bookingDate
+                      ? `Fecha de la reserva: ${bookingDate}.`
+                      : "Selecciona la fecha de la reserva."
+                  )
+                }
+                onBlur={stop}
+              />
             </div>
 
             <div className="grid gap-2">
@@ -799,7 +801,7 @@ function MessagesPageContent() {
 
             <div className="grid gap-2">
               <label className="text-sm font-medium text-foreground" htmlFor="booking-duration">Duración en minutos</label>
-               <Input
+              <Input
                 id="booking-duration"
                 type="number"
                 min={30}

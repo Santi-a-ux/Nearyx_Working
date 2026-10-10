@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchApi } from "@/lib/api";
-import { buildTutorOccupationLabel,  type TutorSearchRecord } from "@/lib/tutor-search";
+import { buildTutorOccupationLabel, type TutorSearchRecord } from "@/lib/tutor-search";
 import { useScreenReader } from "@/components/providers/ScreenReaderContext";
 
 interface Tutor {
@@ -164,21 +164,21 @@ export default function ExploreClient({ mapboxAccessToken = "" }: ExploreClientP
   return (
     <div className="flex h-full min-h-[calc(100vh-7rem)] flex-col gap-4 md:flex-row">
       <aside
-          className="flex max-h-72 w-full shrink-0 flex-col rounded-2xl border border-border bg-[#F8FBFF] p-4 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary md:h-[calc(100dvh-10rem)] md:max-h-none md:min-h-[480px] md:w-60"
-          tabIndex={0}
-          onMouseEnter={() =>
-            speak(
-              `Sección de resultados en vivo. Hay ${visibleTutors.length} expertos disponibles. La lista se sincroniza con el mapa.`
-            )
-          }
-          onMouseLeave={stop}
-          onFocus={() =>
-            speak(
-              `Sección de resultados en vivo. Hay ${visibleTutors.length} expertos disponibles. La lista se sincroniza con el mapa.`
-            )
-          }
-          onBlur={stop}
-        >
+        className="flex max-h-72 w-full shrink-0 flex-col rounded-2xl border border-border bg-[#F8FBFF] p-4 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary md:h-[calc(100dvh-10rem)] md:max-h-none md:min-h-[480px] md:w-60"
+        tabIndex={0}
+        onMouseEnter={() =>
+          speak(
+            `Sección de resultados en vivo. Hay ${visibleTutors.length} expertos disponibles. La lista se sincroniza con el mapa.`
+          )
+        }
+        onMouseLeave={stop}
+        onFocus={() =>
+          speak(
+            `Sección de resultados en vivo. Hay ${visibleTutors.length} expertos disponibles. La lista se sincroniza con el mapa.`
+          )
+        }
+        onBlur={stop}
+      >
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">Resultados en vivo</p>
         <h2 className="mt-2 text-lg font-bold text-foreground">Expertos cerca de ti</h2>
         <p className="mt-1 text-sm text-muted-foreground">La lista se sincroniza con el mapa.</p>
@@ -206,9 +206,9 @@ export default function ExploreClient({ mapboxAccessToken = "" }: ExploreClientP
 
 
         <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-auto pr-1">
-        {isSearching ? (<div className="rounded-xl border border-dashed border-border bg-[#ffffff] p-4 text-sm text-muted-foreground">
-              Buscando...
-            </div>
+          {isSearching ? (<div className="rounded-xl border border-dashed border-border bg-[#ffffff] p-4 text-sm text-muted-foreground">
+            Buscando...
+          </div>
           ) : searchError ? (
             <div className="rounded-xl border border-dashed border-border bg-[#ffffff] p-4 text-sm text-muted-foreground">
               No pudimos completar la búsqueda. Intenta de nuevo en unos segundos.
@@ -247,7 +247,7 @@ export default function ExploreClient({ mapboxAccessToken = "" }: ExploreClientP
                   }
                   onBlur={stop}
                 >
-                  <div className="mt-4 max-h-60 space-y-3 overflow-auto pr-1 md:max-h-[calc(100vh-20rem)]">
+                  <div className="mt-4 flex items-start gap-3 max-h-60 overflow-auto pr-1 md:max-h-[calc(100vh-20rem)]">
                     <UserAvatar
                       name={tutor.display_name || tutor.full_name || "Experto"}
                       size="sm"
