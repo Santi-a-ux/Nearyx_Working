@@ -2,13 +2,13 @@ import 'dotenv/config';
 
 // path segment -> [env override, default URL]. Defaults are the docker-compose service names.
 const SERVICE_DEFS = {
-  auth: ['AUTH_SERVICE_URL', 'http://auth-service:8001'],
-  users: ['USER_SERVICE_URL', 'http://user-service:8002'],
+  auth: ['AUTH_SERVICE_URL', 'https://authservice-1-fc6f.onrender.com'],
+  users: ['USER_SERVICE_URL', 'https://userservice-1-jqgy.onrender.com'],
   tutors: ['TUTOR_SERVICE_URL', 'http://tutor-service:8003'],
-  geo: ['GEO_SERVICE_URL', 'http://geo-service:8004'],
+  geo: ['GEO_SERVICE_URL', 'https://geoservice-1.onrender.com'],
   chat: ['CHAT_SERVICE_URL', 'http://chat-service:8005'],
-  media: ['MEDIA_SERVICE_URL', 'http://media-service:8006'], // production: set MEDIA_SERVICE_URL (never hardcode URLs here)
-  bookings: ['BOOKING_SERVICE_URL', 'http://booking-service:8007'],
+  media: ['MEDIA_SERVICE_URL', 'https://mediaservice-1.onrender.com/'], // production: set MEDIA_SERVICE_URL (never hardcode URLs here)
+  bookings: ['BOOKING_SERVICE_URL', 'https://bookingservice-1-t0ec.onrender.com'],
 };
 
 const list = (raw) => (raw ?? '').split(',').map((s) => s.trim()).filter(Boolean);

@@ -51,6 +51,9 @@ Thumbs.db
 # ─── UPLOADS LOCALES ────────────────────────────────────────────────────────────
 uploads/
 media/
+!frontend/app/api/media/
+!frontend/app/api/media/upload/
+!frontend/app/api/media/upload/route.ts
 tmp/
 # Salidas de build locales
 frontend/build_output.txt
