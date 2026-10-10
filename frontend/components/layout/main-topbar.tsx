@@ -92,14 +92,14 @@ export function MainTopbar({
 
       {showFeedSearch ? (
         <form
-          className="mx-auto hidden w-full max-w-[38rem] md:block"
+          className="mx-auto w-full min-w-0 max-w-[38rem] flex-1"
           onSubmit={(event) => {
             event.preventDefault();
             updateSearch(searchValue);
           }}
         >
-          <label className="flex items-center gap-3 rounded-full border border-border bg-[#ffffff] px-4 py-2.5 shadow-sm focus-within:border-[#95C9FC] focus-within:ring-2 focus-within:ring-[rgba(149,201,252,0.25)]">
-            <Search className="h-4 w-4 shrink-0 text-[#5f7b96]" aria-hidden />
+          <label className="flex items-center gap-2 rounded-full border border-border bg-[#ffffff] px-3 py-2 shadow-sm focus-within:border-[#95C9FC] focus-within:ring-2 focus-within:ring-[rgba(149,201,252,0.25)] md:gap-3 md:px-4 md:py-2.5">
+            <Search className="hidden h-4 w-4 shrink-0 text-[#5f7b96] sm:block" aria-hidden />
             <Input
               value={searchValue}
               onChange={(event) => {
