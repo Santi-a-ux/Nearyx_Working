@@ -116,6 +116,12 @@ export class TutorProfileRepository {
     return rows.map(toEntity);
   }
 
+  /** Every profile (for `backfill:embeddings --all`, e.g. after changing EMBEDDING_DTYPE). */
+  async listAllProfiles() {
+    const { rows } = await this.pool.query(`SELECT ${COLS} FROM tutors.profiles`);
+    return rows.map(toEntity);
+  }
+
   async setEmbedding(userId, embedding) {
     await this.pool.query('UPDATE tutors.profiles SET embedding = $2::text::vector WHERE user_id = $1', [
       userId,

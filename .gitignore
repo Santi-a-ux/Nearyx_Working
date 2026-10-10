@@ -52,3 +52,6 @@ Thumbs.db
 uploads/
 media/
 tmp/
+# Salidas de build locales
+frontend/build_output.txt
+frontend/build_tail.txt
