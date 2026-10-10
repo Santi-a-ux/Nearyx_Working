@@ -1,4 +1,4 @@
-import http from 'node:http';
+import { transportFor } from './transport.js';
 
 const reject = (socket, line) => {
   socket.write(`HTTP/1.1 ${line}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);
@@ -27,12 +27,13 @@ export function attachWebSocketProxy(server, { registry }) {
     clientSocket.setNoDelay(true);
     clientSocket.on('error', () => {});
 
-    const proxyReq = http.request({
+    const { client } = transportFor(target);
+    const proxyReq = client.request({
       hostname: target.hostname,
       port: target.port,
       method: 'GET',
       path: req.url,
-      headers: { ...req.headers, host: `${target.hostname}:${target.port}` },
+      headers: { ...req.headers, host: target.host },
       agent: false,
     });
 

@@ -142,23 +142,6 @@ services:
       timeout: 5s
       retries: 5
 
-  media-service:
-    build:
-      context: ./services/media-service
-      dockerfile: Dockerfile
-    container_name: ttp-media
-    restart: unless-stopped
-    ports:
-      - "8006:8006"
-    env_file: .env
-    environment:
-      - PORT=8006
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   # ─── API GATEWAY ────────────────────────────────────────────────────────────
 
   gateway:
@@ -182,8 +165,6 @@ services:
       tutor-service:
         condition: service_healthy
       geo-service:
-        condition: service_healthy
-      media-service:
         condition: service_healthy
       chat-service:
         condition: service_healthy

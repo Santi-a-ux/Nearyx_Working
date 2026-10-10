@@ -1,7 +1,5 @@
-import http from 'node:http';
 import { forwardableHeaders, withForwardedHeaders } from './headers.js';
-
-const agent = new http.Agent({ keepAlive: true });
+import { transportFor } from './transport.js';
 
 const sendError = (res, status, detail) => {
   if (res.headersSent) return res.destroy();
@@ -18,7 +16,8 @@ export function createHttpProxy({ registry, timeoutMs }) {
     const { target } = resolved;
     const headers = withForwardedHeaders(forwardableHeaders(req.headers, { drop: ['host', 'expect'] }), req);
 
-    const proxyReq = http.request(
+    const { client, agent } = transportFor(target);
+    const proxyReq = client.request(
       {
         agent,
         hostname: target.hostname,
