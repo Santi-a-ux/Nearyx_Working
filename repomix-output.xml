@@ -245,6 +245,8 @@ frontend/
   tsconfig.json
 gateway/
   app/
+    api/
+      index.js
     src/
       application/
         services/
@@ -255,6 +257,7 @@ gateway/
         proxy/
           headers.js
           httpProxy.js
+          transport.js
           websocketProxy.js
       app.js
       container.js
@@ -641,6 +644,7 @@ services/
     Dockerfile
 .gitignore
 docker-compose.yml
+envejemplo
 funtionalities_nw.md
 PROGRESS.md
 README.md
@@ -5999,55 +6003,11 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 }
 </file>
 
-<file path="gateway/app/src/application/services/serviceRegistry.js">
-/** Maps a request URL to the upstream service that owns its first path segment. */
-export class ServiceRegistry {
-  constructor(services) {
-    this.targets = new Map(
-      Object.entries(services).map(([name, url]) => {
-        const { hostname, port, protocol } = new URL(url);
-        return [name, { name, hostname, port: Number(port) || (protocol === 'https:' ? 443 : 80) }];
-      }),
-    );
-  }
+<file path="gateway/app/api/index.js">
+import { buildContainer } from '../src/container.js';
+import { createApp } from '../src/app.js';
 
-  /**
-   * @returns {{ target: object } | { error: 'service_not_found' | 'not_found' }}
-   * `/<service>/...` -> target; `/<unknown>/...` -> service_not_found; `/` or `/<single>` of an
-   * unknown name -> not_found (same answers as the Python gateway).
-   */
-  resolve(url) {
-    const pathname = url.split('?')[0];
-    const segments = pathname.split('/').filter((s, i) => i > 0 || s !== '');
-    const name = segments[0];
-    if (name && this.targets.has(name)) return { target: this.targets.get(name) };
-    if (segments.length >= 2) return { error: 'service_not_found' };
-    return { error: 'not_found' };
-  }
-}
-</file>
-
-<file path="gateway/app/src/config/env.js">
-import 'dotenv/config';
-
-// path segment -> [env override, default URL]. Defaults are the docker-compose service names.
-const SERVICE_DEFS = {
-  auth: ['AUTH_SERVICE_URL', 'http://auth-service:8001'],
-  users: ['USER_SERVICE_URL', 'http://user-service:8002'],
-  tutors: ['TUTOR_SERVICE_URL', 'http://tutor-service:8003'],
-  geo: ['GEO_SERVICE_URL', 'http://geo-service:8004'],
-  chat: ['CHAT_SERVICE_URL', 'http://chat-service:8005'],
-  media: ['MEDIA_SERVICE_URL', 'http://media-service:8006'],
-  bookings: ['BOOKING_SERVICE_URL', 'http://booking-service:8007'],
-};
-
-export const config = {
-  port: Number(process.env.PORT ?? 8000),
-  timeoutMs: Number(process.env.GATEWAY_TIMEOUT_MS ?? 60000),
-  services: Object.fromEntries(
-    Object.entries(SERVICE_DEFS).map(([name, [envName, fallback]]) => [name, process.env[envName] ?? fallback]),
-  ),
-};
+export default createApp(buildContainer());
 </file>
 
 <file path="gateway/app/src/infrastructure/proxy/headers.js">
@@ -6078,132 +6038,18 @@ export function withForwardedHeaders(headers, req) {
 }
 </file>
 
-<file path="gateway/app/src/infrastructure/proxy/httpProxy.js">
+<file path="gateway/app/src/infrastructure/proxy/transport.js">
 import http from 'node:http';
-import { forwardableHeaders, withForwardedHeaders } from './headers.js';
+import https from 'node:https';
 
-const agent = new http.Agent({ keepAlive: true });
-
-const sendError = (res, status, detail) => {
-  if (res.headersSent) return res.destroy();
-  res.status(status).json({ detail });
+// One keep-alive agent per scheme: an upstream URL decides whether it is spoken to over HTTP or HTTPS.
+const transports = {
+  'http:': { client: http, agent: new http.Agent({ keepAlive: true }) },
+  'https:': { client: https, agent: new https.Agent({ keepAlive: true }) },
 };
 
-/** Express middleware: streams the request to the owning service and the response back (no buffering). */
-export function createHttpProxy({ registry, timeoutMs }) {
-  return (req, res) => {
-    const resolved = registry.resolve(req.originalUrl);
-    if (resolved.error === 'service_not_found') return sendError(res, 404, 'Service not found');
-    if (resolved.error) return sendError(res, 404, 'Not Found');
-
-    const { target } = resolved;
-    const headers = withForwardedHeaders(forwardableHeaders(req.headers, { drop: ['host', 'expect'] }), req);
-
-    const proxyReq = http.request(
-      {
-        agent,
-        hostname: target.hostname,
-        port: target.port,
-        method: req.method,
-        path: req.originalUrl, // full path + query, unchanged
-        headers,
-        timeout: timeoutMs,
-      },
-      (proxyRes) => {
-        res.writeHead(proxyRes.statusCode, proxyRes.statusMessage, forwardableHeaders(proxyRes.headers));
-        proxyRes.pipe(res);
-        proxyRes.on('error', () => res.destroy());
-      },
-    );
-
-    proxyReq.on('timeout', () => proxyReq.destroy(Object.assign(new Error('upstream timeout'), { code: 'ETIMEDOUT' })));
-    proxyReq.on('error', (err) => {
-      const status = err.code === 'ETIMEDOUT' ? 504 : 502;
-      sendError(res, status, `${status === 504 ? 'Gateway Timeout' : 'Bad Gateway'}: ${err.message}`);
-    });
-
-    // Client went away before the answer: stop talking to the service.
-    res.on('close', () => { if (!res.writableFinished) proxyReq.destroy(); });
-
-    req.pipe(proxyReq);
-  };
-}
-</file>
-
-<file path="gateway/app/src/infrastructure/proxy/websocketProxy.js">
-import http from 'node:http';
-
-const reject = (socket, line) => {
-  socket.write(`HTTP/1.1 ${line}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);
-  socket.destroy();
-};
-
-const rawHead = (statusLine, rawHeaders) => {
-  let head = `${statusLine}\r\n`;
-  for (let i = 0; i < rawHeaders.length; i += 2) head += `${rawHeaders[i]}: ${rawHeaders[i + 1]}\r\n`;
-  return `${head}\r\n`;
-};
-
-/**
- * WebSocket support without touching frames: the Upgrade request is replayed against the service
- * (same path, query, cookies and Sec-WebSocket-* headers) and, once it answers 101, both sockets are
- * piped together. Text, binary, ping/pong and close codes pass through untouched.
- */
-export function attachWebSocketProxy(server, { registry }) {
-  const open = new Set();
-
-  server.on('upgrade', (req, clientSocket, clientHead) => {
-    const resolved = registry.resolve(req.url);
-    if (resolved.error) return reject(clientSocket, '404 Not Found');
-
-    const { target } = resolved;
-    clientSocket.setNoDelay(true);
-    clientSocket.on('error', () => {});
-
-    const proxyReq = http.request({
-      hostname: target.hostname,
-      port: target.port,
-      method: 'GET',
-      path: req.url,
-      headers: { ...req.headers, host: `${target.hostname}:${target.port}` },
-      agent: false,
-    });
-
-    proxyReq.on('upgrade', (proxyRes, serviceSocket, serviceHead) => {
-      serviceSocket.setNoDelay(true);
-      serviceSocket.on('error', () => clientSocket.destroy());
-      clientSocket.on('close', () => serviceSocket.destroy());
-      serviceSocket.on('close', () => clientSocket.destroy());
-
-      clientSocket.write(rawHead('HTTP/1.1 101 Switching Protocols', proxyRes.rawHeaders));
-      if (serviceHead?.length) clientSocket.write(serviceHead);
-      if (clientHead?.length) serviceSocket.write(clientHead);
-
-      serviceSocket.pipe(clientSocket);
-      clientSocket.pipe(serviceSocket);
-
-      open.add(clientSocket).add(serviceSocket);
-      const forget = () => { open.delete(clientSocket); open.delete(serviceSocket); };
-      clientSocket.on('close', forget);
-    });
-
-    // The service refused the upgrade (e.g. 401/404): relay its answer as is.
-    proxyReq.on('response', (proxyRes) => {
-      clientSocket.write(rawHead(`HTTP/1.1 ${proxyRes.statusCode} ${proxyRes.statusMessage}`, proxyRes.rawHeaders));
-      proxyRes.pipe(clientSocket);
-    });
-
-    proxyReq.on('error', () => reject(clientSocket, '502 Bad Gateway'));
-    clientSocket.on('close', () => proxyReq.destroy());
-    proxyReq.end();
-  });
-
-  return {
-    close() {
-      for (const socket of open) socket.destroy();
-    },
-  };
-}
+/** @returns {{ client: typeof http, agent: http.Agent }} the node client matching `target.protocol`. */
+export const transportFor = (target) => transports[target.protocol];
 </file>
 
 <file path="gateway/app/src/app.js">
@@ -10213,11 +10059,6 @@ JWT_ALGORITHM=HS256
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_KEY=your-service-key
 SUPABASE_BUCKET=tempoimages
-</file>
-
-<file path="services/media-service/app/.gitignore">
-node_modules
-.env
 </file>
 
 <file path="services/media-service/app/package.json">
@@ -16157,6 +15998,189 @@ const config = {
 export default config
 </file>
 
+<file path="gateway/app/src/application/services/serviceRegistry.js">
+/** Maps a request URL to the upstream service that owns its first path segment. */
+export class ServiceRegistry {
+  constructor(services) {
+    this.targets = new Map(
+      Object.entries(services).map(([name, url]) => {
+        const { hostname, host, port, protocol } = new URL(url);
+        if (protocol !== 'http:' && protocol !== 'https:') {
+          throw new Error(`Unsupported protocol "${protocol}" for service "${name}" (${url}): use http:// or https://`);
+        }
+        return [name, { name, protocol, hostname, host, port: Number(port) || (protocol === 'https:' ? 443 : 80) }];
+      }),
+    );
+  }
+
+  /**
+   * @returns {{ target: object } | { error: 'service_not_found' | 'not_found' }}
+   * `/<service>/...` -> target; `/<unknown>/...` -> service_not_found; `/` or `/<single>` of an
+   * unknown name -> not_found (same answers as the Python gateway).
+   */
+  resolve(url) {
+    const pathname = url.split('?')[0];
+    const segments = pathname.split('/').filter((s, i) => i > 0 || s !== '');
+    const name = segments[0];
+    if (name && this.targets.has(name)) return { target: this.targets.get(name) };
+    if (segments.length >= 2) return { error: 'service_not_found' };
+    return { error: 'not_found' };
+  }
+}
+</file>
+
+<file path="gateway/app/src/config/env.js">
+import 'dotenv/config';
+
+// path segment -> [env override, default URL]. Defaults are the docker-compose service names.
+const SERVICE_DEFS = {
+  auth: ['AUTH_SERVICE_URL', 'http://auth-service:8001'],
+  users: ['USER_SERVICE_URL', 'http://user-service:8002'],
+  tutors: ['TUTOR_SERVICE_URL', 'http://tutor-service:8003'],
+  geo: ['GEO_SERVICE_URL', 'http://geo-service:8004'],
+  chat: ['CHAT_SERVICE_URL', 'http://chat-service:8005'],
+  media: ['MEDIA_SERVICE_URL', 'https://mediaservice-1.onrender.com/'],
+  //media: ['MEDIA_SERVICE_URL', 'http://media-service:8006'],
+  bookings: ['BOOKING_SERVICE_URL', 'http://booking-service:8007'],
+};
+
+export const config = {
+  port: Number(process.env.PORT ?? 8000),
+  timeoutMs: Number(process.env.GATEWAY_TIMEOUT_MS ?? 60000),
+  services: Object.fromEntries(
+    Object.entries(SERVICE_DEFS).map(([name, [envName, fallback]]) => [name, process.env[envName] ?? fallback]),
+  ),
+};
+</file>
+
+<file path="gateway/app/src/infrastructure/proxy/httpProxy.js">
+import { forwardableHeaders, withForwardedHeaders } from './headers.js';
+import { transportFor } from './transport.js';
+
+const sendError = (res, status, detail) => {
+  if (res.headersSent) return res.destroy();
+  res.status(status).json({ detail });
+};
+
+/** Express middleware: streams the request to the owning service and the response back (no buffering). */
+export function createHttpProxy({ registry, timeoutMs }) {
+  return (req, res) => {
+    const resolved = registry.resolve(req.originalUrl);
+    if (resolved.error === 'service_not_found') return sendError(res, 404, 'Service not found');
+    if (resolved.error) return sendError(res, 404, 'Not Found');
+
+    const { target } = resolved;
+    const headers = withForwardedHeaders(forwardableHeaders(req.headers, { drop: ['host', 'expect'] }), req);
+
+    const { client, agent } = transportFor(target);
+    const proxyReq = client.request(
+      {
+        agent,
+        hostname: target.hostname,
+        port: target.port,
+        method: req.method,
+        path: req.originalUrl, // full path + query, unchanged
+        headers,
+        timeout: timeoutMs,
+      },
+      (proxyRes) => {
+        res.writeHead(proxyRes.statusCode, proxyRes.statusMessage, forwardableHeaders(proxyRes.headers));
+        proxyRes.pipe(res);
+        proxyRes.on('error', () => res.destroy());
+      },
+    );
+
+    proxyReq.on('timeout', () => proxyReq.destroy(Object.assign(new Error('upstream timeout'), { code: 'ETIMEDOUT' })));
+    proxyReq.on('error', (err) => {
+      const status = err.code === 'ETIMEDOUT' ? 504 : 502;
+      sendError(res, status, `${status === 504 ? 'Gateway Timeout' : 'Bad Gateway'}: ${err.message}`);
+    });
+
+    // Client went away before the answer: stop talking to the service.
+    res.on('close', () => { if (!res.writableFinished) proxyReq.destroy(); });
+
+    req.pipe(proxyReq);
+  };
+}
+</file>
+
+<file path="gateway/app/src/infrastructure/proxy/websocketProxy.js">
+import { transportFor } from './transport.js';
+
+const reject = (socket, line) => {
+  socket.write(`HTTP/1.1 ${line}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);
+  socket.destroy();
+};
+
+const rawHead = (statusLine, rawHeaders) => {
+  let head = `${statusLine}\r\n`;
+  for (let i = 0; i < rawHeaders.length; i += 2) head += `${rawHeaders[i]}: ${rawHeaders[i + 1]}\r\n`;
+  return `${head}\r\n`;
+};
+
+/**
+ * WebSocket support without touching frames: the Upgrade request is replayed against the service
+ * (same path, query, cookies and Sec-WebSocket-* headers) and, once it answers 101, both sockets are
+ * piped together. Text, binary, ping/pong and close codes pass through untouched.
+ */
+export function attachWebSocketProxy(server, { registry }) {
+  const open = new Set();
+
+  server.on('upgrade', (req, clientSocket, clientHead) => {
+    const resolved = registry.resolve(req.url);
+    if (resolved.error) return reject(clientSocket, '404 Not Found');
+
+    const { target } = resolved;
+    clientSocket.setNoDelay(true);
+    clientSocket.on('error', () => {});
+
+    const { client } = transportFor(target);
+    const proxyReq = client.request({
+      hostname: target.hostname,
+      port: target.port,
+      method: 'GET',
+      path: req.url,
+      headers: { ...req.headers, host: target.host },
+      agent: false,
+    });
+
+    proxyReq.on('upgrade', (proxyRes, serviceSocket, serviceHead) => {
+      serviceSocket.setNoDelay(true);
+      serviceSocket.on('error', () => clientSocket.destroy());
+      clientSocket.on('close', () => serviceSocket.destroy());
+      serviceSocket.on('close', () => clientSocket.destroy());
+
+      clientSocket.write(rawHead('HTTP/1.1 101 Switching Protocols', proxyRes.rawHeaders));
+      if (serviceHead?.length) clientSocket.write(serviceHead);
+      if (clientHead?.length) serviceSocket.write(clientHead);
+
+      serviceSocket.pipe(clientSocket);
+      clientSocket.pipe(serviceSocket);
+
+      open.add(clientSocket).add(serviceSocket);
+      const forget = () => { open.delete(clientSocket); open.delete(serviceSocket); };
+      clientSocket.on('close', forget);
+    });
+
+    // The service refused the upgrade (e.g. 401/404): relay its answer as is.
+    proxyReq.on('response', (proxyRes) => {
+      clientSocket.write(rawHead(`HTTP/1.1 ${proxyRes.statusCode} ${proxyRes.statusMessage}`, proxyRes.rawHeaders));
+      proxyRes.pipe(clientSocket);
+    });
+
+    proxyReq.on('error', () => reject(clientSocket, '502 Bad Gateway'));
+    clientSocket.on('close', () => proxyReq.destroy());
+    proxyReq.end();
+  });
+
+  return {
+    close() {
+      for (const socket of open) socket.destroy();
+    },
+  };
+}
+</file>
+
 <file path="gateway/Dockerfile">
 FROM node:22-slim
 WORKDIR /app
@@ -16651,6 +16675,12 @@ export const config = {
   },
   maxUploadBytes: 25 * 1024 * 1024,
 };
+</file>
+
+<file path="services/media-service/app/.gitignore">
+node_modules
+.env
+.vercel
 </file>
 
 <file path="services/tutor-service/app/scripts/debugSearch.js">
@@ -19005,63 +19035,6 @@ USER node
 CMD ["node", "src/server.js"]
 </file>
 
-<file path=".gitignore">
-# ─── ENTORNO ────────────────────────────────────────────────────────────────────
-.env
-.env.local
-.env.production
-.env.staging
-*/.env/*
-**/.env/*
-*/.env/**
-**/.env/**
-*/.env
-**/.env
-# ─── PYTHON ─────────────────────────────────────────────────────────────────────
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-dist/
-*.egg-info/
-.eggs/
-.venv/
-venv/
-env/
-.pytest_cache/
-.coverage
-htmlcov/
-*.log
-
-# ─── NODE / NEXT.JS ─────────────────────────────────────────────────────────────
-node_modules/
-.next/
-out/
-.turbo/
-*.tsbuildinfo
-frontend/.next/
-frontend/node_modules/
-
-# ─── DOCKER ─────────────────────────────────────────────────────────────────────
-# No ignorar docker-compose.yml — sí ignorar overrides locales
-docker-compose.override.yml
-
-# ─── IDE ────────────────────────────────────────────────────────────────────────
-.vscode/settings.json
-.idea/
-*.swp
-*.swo
-.DS_Store
-Thumbs.db
-
-# ─── UPLOADS LOCALES ────────────────────────────────────────────────────────────
-uploads/
-media/
-tmp/
-</file>
-
 <file path="funtionalities_nw.md">
 # Nico - Calificar expertos con comentarios
 # Santiago G - Arreglo de comentarios y se agrego la funcionalidad de hacerlo en las publicaciones
@@ -20269,6 +20242,63 @@ DO $$
 BEGIN
   RAISE NOTICE '✅ Seed compacto aplicado: 5 usuarios normales y 5 expertos';
 END $$;
+</file>
+
+<file path=".gitignore">
+# ─── ENTORNO ────────────────────────────────────────────────────────────────────
+.env
+.env.local
+.env.production
+.env.staging
+*/.env/*
+**/.env/*
+*/.env/**
+**/.env/**
+*/.env
+**/.env
+# ─── PYTHON ─────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+repomix-output.xml
+# ─── NODE / NEXT.JS ─────────────────────────────────────────────────────────────
+node_modules/
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+frontend/.next/
+frontend/node_modules/
+
+# ─── DOCKER ─────────────────────────────────────────────────────────────────────
+# No ignorar docker-compose.yml — sí ignorar overrides locales
+docker-compose.override.yml
+
+# ─── IDE ────────────────────────────────────────────────────────────────────────
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ─── UPLOADS LOCALES ────────────────────────────────────────────────────────────
+uploads/
+media/
+tmp/
 </file>
 
 <file path="frontend/app/(main)/layout.tsx">
@@ -22235,6 +22265,7 @@ async function fetchFeedPosts(limit = 20, offset = 0): Promise<FeedResponse> {
 }
 
 async function createFeedPost(content: string, imageUrl?: string, authorRole?: FeedAuthorRole) {
+  
   const response = await fetch("/api/feed/posts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -23561,236 +23592,6 @@ function TutorMiniCard({ tutor }: TutorMiniCardProps) {
 }
 </file>
 
-<file path="docker-compose.yml">
-services:
-
-  # ─── INFRAESTRUCTURA ────────────────────────────────────────────────────────
-
-  redis:
-    image: redis:7-alpine
-    container_name: ttp-redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-
-  # ─── SERVICIOS DE DOMINIO ───────────────────────────────────────────────────
-
-  auth-service:
-    build:
-      context: ./services/auth-service
-      dockerfile: Dockerfile
-    container_name: ttp-auth
-    restart: unless-stopped
-    ports:
-      - "8001:8001"
-    env_file: .env
-    environment:
-      - PORT=8001
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  user-service:
-    build:
-      context: ./services/user-service
-      dockerfile: Dockerfile
-    container_name: ttp-users
-    restart: unless-stopped
-    ports:
-      - "8002:8002"
-    env_file: .env
-    environment:
-      - PORT=8002
-    depends_on:
-      auth-service:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  tutor-service:
-    build:
-      context: ./services/tutor-service
-      dockerfile: Dockerfile
-    container_name: ttp-tutors
-    restart: unless-stopped
-    ports:
-      - "8003:8003"
-    env_file: .env
-    environment:
-      - PORT=8003
-      - SEMANTIC_ABSOLUTE_CEILING=${SEMANTIC_ABSOLUTE_CEILING}
-      - SEMANTIC_RELATIVE_MARGIN=${SEMANTIC_RELATIVE_MARGIN}
-      - SEMANTIC_MIN_SEPARATION=${SEMANTIC_MIN_SEPARATION}
-    volumes:
-      # Embedding model (~470 MB, downloaded on first start); keeps it across rebuilds
-      - tutor_model_cache:/app/.cache
-    depends_on:
-      auth-service:
-        condition: service_healthy
-      user-service:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  geo-service:
-    build:
-      context: ./services/geo-service
-      dockerfile: Dockerfile
-    container_name: ttp-geo
-    restart: unless-stopped
-    ports:
-      - "8004:8004"
-    env_file: .env
-    environment:
-      - PORT=8004
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  chat-service:
-    build:
-      context: ./services/chat-service
-      dockerfile: Dockerfile
-    container_name: ttp-chat
-    restart: unless-stopped
-    ports:
-      - "8005:8005"
-    env_file: .env
-    environment:
-      - PORT=8005
-    depends_on:
-      redis:
-        condition: service_healthy
-      auth-service:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  booking-service:
-    build:
-      context: ./services/booking-service
-      dockerfile: Dockerfile
-    container_name: ttp-bookings
-    restart: unless-stopped
-    ports:
-      - "8007:8007"
-    env_file: .env
-    environment:
-      - PORT=8007
-    depends_on:
-      auth-service:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8007/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  media-service:
-    build:
-      context: ./services/media-service
-      dockerfile: Dockerfile
-    container_name: ttp-media
-    restart: unless-stopped
-    ports:
-      - "8006:8006"
-    env_file: .env
-    environment:
-      - PORT=8006
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # ─── API GATEWAY ────────────────────────────────────────────────────────────
-
-  gateway:
-    build:
-      context: ./gateway
-      dockerfile: Dockerfile
-    container_name: ttp-gateway
-    restart: unless-stopped
-    ports:
-      - "8000:8000"
-    env_file: .env
-    environment:
-      - PORT=8000
-    depends_on:
-      redis:
-        condition: service_healthy
-      auth-service:
-        condition: service_healthy
-      user-service:
-        condition: service_healthy
-      tutor-service:
-        condition: service_healthy
-      geo-service:
-        condition: service_healthy
-      media-service:
-        condition: service_healthy
-      chat-service:
-        condition: service_healthy
-      booking-service:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # ─── FRONTEND ───────────────────────────────────────────────────────────────
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_MAPBOX_TOKEN: ${MAPBOX_PUBLIC_TOKEN:-${NEXT_PUBLIC_MAPBOX_TOKEN}}
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
-        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-ws://localhost:8000}
-        NEXT_PUBLIC_FORCE_MEDELLIN: ${NEXT_PUBLIC_FORCE_MEDELLIN:-0}
-    container_name: ttp-frontend
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    # Solo env_file: evita que `environment:` vacíe variables si falla la sustitución ${...}
-    env_file:
-      - .env
-    depends_on:
-      gateway:
-        condition: service_healthy
-
-volumes:
-  redis_data:
-  media_files:
-  tutor_model_cache:
-
-networks:
-  default:
-    name: ttp-network
-</file>
-
 <file path="frontend/app/(main)/explore/explore-client.tsx">
 "use client";
 
@@ -24123,6 +23924,217 @@ export default function ExploreClient({ mapboxAccessToken = "" }: ExploreClientP
     </div>
   );
 }
+</file>
+
+<file path="docker-compose.yml">
+services:
+
+  # ─── INFRAESTRUCTURA ────────────────────────────────────────────────────────
+
+  redis:
+    image: redis:7-alpine
+    container_name: ttp-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ─── SERVICIOS DE DOMINIO ───────────────────────────────────────────────────
+
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    container_name: ttp-auth
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    env_file: .env
+    environment:
+      - PORT=8001
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: Dockerfile
+    container_name: ttp-users
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    env_file: .env
+    environment:
+      - PORT=8002
+    depends_on:
+      auth-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  tutor-service:
+    build:
+      context: ./services/tutor-service
+      dockerfile: Dockerfile
+    container_name: ttp-tutors
+    restart: unless-stopped
+    ports:
+      - "8003:8003"
+    env_file: .env
+    environment:
+      - PORT=8003
+      - SEMANTIC_ABSOLUTE_CEILING=${SEMANTIC_ABSOLUTE_CEILING}
+      - SEMANTIC_RELATIVE_MARGIN=${SEMANTIC_RELATIVE_MARGIN}
+      - SEMANTIC_MIN_SEPARATION=${SEMANTIC_MIN_SEPARATION}
+    volumes:
+      # Embedding model (~470 MB, downloaded on first start); keeps it across rebuilds
+      - tutor_model_cache:/app/.cache
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  geo-service:
+    build:
+      context: ./services/geo-service
+      dockerfile: Dockerfile
+    container_name: ttp-geo
+    restart: unless-stopped
+    ports:
+      - "8004:8004"
+    env_file: .env
+    environment:
+      - PORT=8004
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  chat-service:
+    build:
+      context: ./services/chat-service
+      dockerfile: Dockerfile
+    container_name: ttp-chat
+    restart: unless-stopped
+    ports:
+      - "8005:8005"
+    env_file: .env
+    environment:
+      - PORT=8005
+    depends_on:
+      redis:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  booking-service:
+    build:
+      context: ./services/booking-service
+      dockerfile: Dockerfile
+    container_name: ttp-bookings
+    restart: unless-stopped
+    ports:
+      - "8007:8007"
+    env_file: .env
+    environment:
+      - PORT=8007
+    depends_on:
+      auth-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8007/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── API GATEWAY ────────────────────────────────────────────────────────────
+
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    container_name: ttp-gateway
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      - PORT=8000
+    depends_on:
+      redis:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+      tutor-service:
+        condition: service_healthy
+      geo-service:
+        condition: service_healthy
+      chat-service:
+        condition: service_healthy
+      booking-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── FRONTEND ───────────────────────────────────────────────────────────────
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_MAPBOX_TOKEN: ${MAPBOX_PUBLIC_TOKEN:-${NEXT_PUBLIC_MAPBOX_TOKEN}}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-ws://localhost:8000}
+        NEXT_PUBLIC_FORCE_MEDELLIN: ${NEXT_PUBLIC_FORCE_MEDELLIN:-0}
+    container_name: ttp-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    # Solo env_file: evita que `environment:` vacíe variables si falla la sustitución ${...}
+    env_file:
+      - .env
+    depends_on:
+      gateway:
+        condition: service_healthy
+
+volumes:
+  redis_data:
+  media_files:
+  tutor_model_cache:
+
+networks:
+  default:
+    name: ttp-network
 </file>
 
 <file path="frontend/app/(main)/profile/me/page.tsx">

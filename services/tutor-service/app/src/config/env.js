@@ -25,6 +25,9 @@ export const config = {
   embeddings: {
     model: process.env.EMBEDDING_MODEL ?? 'Xenova/multilingual-e5-small',
     cacheDir: path.resolve(process.env.MODEL_CACHE_DIR ?? '.cache/models'),
+    // fp32 (~470 MB, exact) or q8 (~120 MB, lighter on RAM). Changing it changes the vectors: re-run
+    // `npm run backfill:embeddings -- --all` and `npm run calibrate:search` afterwards.
+    dtype: process.env.EMBEDDING_DTYPE ?? 'fp32',
     dimensions: 384,
   },
 };

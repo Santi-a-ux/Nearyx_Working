@@ -10,18 +10,20 @@ export class TransformersEmbedder {
   #model;
   #cacheDir;
   #dimensions;
+  #dtype;
   #extractor = null; // Promise, created lazily and shared
 
-  constructor({ model, cacheDir, dimensions }) {
+  constructor({ model, cacheDir, dimensions, dtype = 'fp32' }) {
     this.#model = model;
     this.#cacheDir = cacheDir;
     this.#dimensions = dimensions;
+    this.#dtype = dtype;
   }
 
   #load() {
     if (!this.#extractor) {
       env.cacheDir = this.#cacheDir;
-      this.#extractor = pipeline('feature-extraction', this.#model, { dtype: 'fp32' }).catch((err) => {
+      this.#extractor = pipeline('feature-extraction', this.#model, { dtype: this.#dtype }).catch((err) => {
         this.#extractor = null; // allow a retry on the next call
         throw new EmbeddingUnavailableError(err);
       });

@@ -23,5 +23,5 @@ export function buildContainer() {
     authenticate: createAuthenticate(authService),
   });
 
-  return { authRouter };
+  return { authRouter, checkDatabase: () => pool.query('SELECT 1') };
 }
