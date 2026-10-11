@@ -129,80 +129,84 @@ export function NotificationsBell() {
 
       {open && panelStyle && typeof document !== "undefined"
         ? createPortal(
-            <div ref={panelRef}>
-              <Card
-                className={cn(
-                  "fixed z-[80] w-80 overflow-hidden border-border/60 bg-popover text-popover-foreground shadow-2xl",
-                  "animate-in fade-in-0 zoom-in-95 duration-150"
-                )}
-                style={{ top: panelStyle.top, left: panelStyle.left }}
-              >
-                <CardHeader className="border-b border-border/60 px-4 py-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <CardTitle className="text-sm font-semibold">Notificaciones</CardTitle>
-                      <p className="mt-1 text-xs text-muted-foreground">Resumen rápido de tu actividad</p>
-                    </div>
-                    <Badge variant={summary.unreadMessages > 0 ? "default" : "outline"}>
-                      {loading ? "Cargando" : `${summary.unreadMessages} sin leer`}
-                    </Badge>
+          <div ref={panelRef}>
+            <Card
+              className={cn(
+                "fixed z-[80] flex w-[min(20rem,calc(100vw-1rem))] flex-col overflow-hidden border-border/60 bg-popover text-popover-foreground shadow-2xl",
+                "animate-in fade-in-0 zoom-in-95 duration-150"
+              )}
+              style={{
+                top: panelStyle.top,
+                left: panelStyle.left,
+                maxHeight: `calc(100dvh - ${panelStyle.top}px - 0.75rem)`,
+              }}
+            >
+              <CardHeader className="shrink-0 border-b border-border/60 px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-sm font-semibold">Notificaciones</CardTitle>
+                    <p className="mt-1 text-xs text-muted-foreground">Resumen rápido de tu actividad</p>
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-4 p-4">
-                  <div className="rounded-2xl border border-border/60 bg-muted/30 p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="rounded-xl bg-primary/10 p-2 text-primary">
-                        <IconBell className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-foreground">
-                          {summary.unreadMessages > 0
-                            ? `Tienes ${summary.unreadMessages} mensaje${summary.unreadMessages === 1 ? "" : "s"} pendiente${summary.unreadMessages === 1 ? "" : "s"}`
-                            : "No tienes mensajes pendientes"}
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {summary.unreadMessages > 0
-                            ? "Abre mensajes para responder a estudiantes o expertos activos."
-                            : "Cuando lleguen mensajes nuevos aparecerán aquí con su prioridad."}
-                        </p>
-                      </div>
+                  <Badge variant={summary.unreadMessages > 0 ? "default" : "outline"}>
+                    {loading ? "Cargando" : `${summary.unreadMessages} sin leer`}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+                <div className="rounded-2xl border border-border/60 bg-muted/30 p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-xl bg-primary/10 p-2 text-primary">
+                      <IconBell className="h-4 w-4" />
                     </div>
-                    <div className="mt-3">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="w-full justify-center"
-                        onClick={() => {
-                          window.location.href = "/messages";
-                        }}
-                      >
-                        Ir a mensajes
-                      </Button>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground">
+                        {summary.unreadMessages > 0
+                          ? `Tienes ${summary.unreadMessages} mensaje${summary.unreadMessages === 1 ? "" : "s"} pendiente${summary.unreadMessages === 1 ? "" : "s"}`
+                          : "No tienes mensajes pendientes"}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {summary.unreadMessages > 0
+                          ? "Abre mensajes para responder a estudiantes o expertos activos."
+                          : "Cuando lleguen mensajes nuevos aparecerán aquí con su prioridad."}
+                      </p>
                     </div>
                   </div>
+                  <div className="mt-3">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="w-full justify-center"
+                      onClick={() => {
+                        window.location.href = "/messages";
+                      }}
+                    >
+                      Ir a mensajes
+                    </Button>
+                  </div>
+                </div>
 
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                      Sugerencias
-                    </p>
-                    {staticItems.map((item) => (
-                      <div key={item.title} className="flex items-start gap-3 rounded-2xl border border-border/60 p-3">
-                        <div className={cn("mt-0.5 rounded-lg px-2 py-1 text-xs font-medium", item.tone)}>
-                          {item.title.slice(0, 1)}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-foreground">{item.title}</p>
-                          <p className="mt-1 text-xs leading-5 text-muted-foreground">{item.description}</p>
-                        </div>
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                    Sugerencias
+                  </p>
+                  {staticItems.map((item) => (
+                    <div key={item.title} className="flex items-start gap-3 rounded-2xl border border-border/60 p-3">
+                      <div className={cn("mt-0.5 rounded-lg px-2 py-1 text-xs font-medium", item.tone)}>
+                        {item.title.slice(0, 1)}
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>,
-            document.body
-          )
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground">{item.title}</p>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">{item.description}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>,
+          document.body
+        )
         : null}
     </div>
   );
