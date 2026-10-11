@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { UserAvatar } from "@/components/user-avatar";
-import { AlertCircle, CalendarDays, Loader2, Search, Send, ArrowLeft } from "lucide-react";
+import { AlertCircle, CalendarDays, Loader2, Search, Send, ArrowLeft, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { fetchApi } from "@/lib/api";
@@ -454,7 +454,7 @@ function MessagesPageContent() {
   return (
     <div className="flex h-full min-h-0 w-full overflow-hidden bg-[#ffffff]">
       <div className="flex h-full min-h-0 w-full gap-4 p-3 lg:p-4">
-        <aside className={`min-h-0 w-full flex-col overflow-hidden md:flex md:w-[360px] md:shrink-0 ${showChatMobile ? "hidden" : "flex"} ${appPanelSoftClass}`}>
+        <aside className={`min-h-0 w-full flex-col overflow-hidden lg:flex lg:w-[360px] lg:shrink-0 ${showChatMobile ? "hidden" : "flex"} ${appPanelSoftClass}`}>
           <div
             tabIndex={0}
             onFocus={() =>
@@ -479,8 +479,8 @@ function MessagesPageContent() {
 
               <span
                 className={`rounded-full px-3 py-1 text-[11px] font-medium ${isConnected
-                    ? "bg-semantic-success/10 text-semantic-success"
-                    : "bg-muted text-muted-foreground"
+                  ? "bg-semantic-success/10 text-semantic-success"
+                  : "bg-muted text-muted-foreground"
                   }`}
               >
                 {isConnected ? "En línea" : "Desconectado"}
@@ -536,12 +536,12 @@ function MessagesPageContent() {
                         }
                         onBlur={stop}
                         aria-label={`Conversación con ${c.partnerName}. ${c.last_message
-                            ? `Último mensaje: ${c.last_message}.`
-                            : "Sin mensajes."
+                          ? `Último mensaje: ${c.last_message}.`
+                          : "Sin mensajes."
                           }`}
                         className={`group w-full rounded-xl border px-4 py-3 text-left transition-all duration-200 ${isActive
-                            ? "border-[#95C9FC] bg-[#C6E2FE] shadow-sm"
-                            : "border-transparent hover:border-border hover:bg-[#F8FBFF]"
+                          ? "border-[#95C9FC] bg-[#C6E2FE] shadow-sm"
+                          : "border-transparent hover:border-border hover:bg-[#F8FBFF]"
                           }`}
                       >
                         <div className="flex items-start gap-3">
@@ -578,69 +578,68 @@ function MessagesPageContent() {
           </div>
         </aside>
 
-        <section className={`min-w-0 flex-1 flex-col overflow-hidden md:flex ${showChatMobile ? "flex" : "hidden"} ${appPanelClass}`}>
+        <section className={`min-w-0 flex-1 flex-col overflow-hidden lg:flex ${showChatMobile ? "flex" : "hidden"} ${appPanelClass}`}>
           <div
             tabIndex={0}
             onFocus={() =>
               speak(
                 receiverId && isUuid(receiverId)
-                  ? `Chat con ${resolvedName}. ${conversationId ? "En línea." : "Selecciona un chat."
-                  }`
+                  ? `Chat con ${resolvedName}. ${conversationId ? "En línea." : "Selecciona un chat."}`
                   : "No hay ninguna conversación seleccionada."
               )
             }
             onBlur={stop}
-            className="flex-shrink-0 rounded-md border-b border-border px-5 py-4 focus:outline-none focus:ring-2 focus:ring-primary"
+            className="flex-shrink-0 rounded-md border-b border-border px-3 py-3 focus:outline-none focus:ring-2 focus:ring-primary md:px-5 md:py-4"
           >
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex min-w-0 items-center gap-3">
+            <div className="flex items-center justify-between gap-2 md:gap-4">
+              <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="shrink-0 md:hidden"
+                  className="shrink-0 lg:hidden"
                   aria-label="Volver a conversaciones"
                   onClick={() => setShowChatMobile(false)}
                 >
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
-                <UserAvatar name={resolvedName} size="mlg" avatarUrl={resolvedAvatar} />
+
+                <div className="shrink-0">
+                  <UserAvatar name={resolvedName} size="mlg" avatarUrl={resolvedAvatar} />
+                </div>
 
                 <div className="min-w-0">
-                  <h3 className="truncate text-sm font-semibold text-foreground">
-                    {resolvedName}
-                  </h3>
+                  <h3 className="truncate text-sm font-semibold text-foreground">{resolvedName}</h3>
                   <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                    <span className="h-2 w-2 rounded-full bg-semantic-success" />
-                    <span>{conversationId ? "En línea" : "Selecciona un chat"}</span>
+                    <span className="h-2 w-2 shrink-0 rounded-full bg-semantic-success" />
+                    <span className="truncate">{conversationId ? "En línea" : "Selecciona un chat"}</span>
                   </div>
                 </div>
               </div>
 
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="flex shrink-0 items-center gap-1.5 md:gap-2">
                 {receiverId && isUuid(receiverId) ? (
                   <>
                     <Link
                       href={`/profile/${receiverId}`}
-                      className="inline-flex h-10 items-center rounded-full border border-[#2563EB]/20 bg-[#EEF6FF] px-4 text-sm font-semibold text-[#2563EB] transition-colors hover:bg-[#E0EFFF]"
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#2563EB]/20 bg-[#EEF6FF] text-sm font-semibold text-[#2563EB] transition-colors hover:bg-[#E0EFFF] xl:w-auto xl:px-4"
                       aria-label={`Ver perfil de ${resolvedName}`}
                       onFocus={() => speak(`Botón. Ver perfil de ${resolvedName}.`)}
                       onBlur={stop}
                     >
-                      Ver perfil
+                      <UserRound className="h-4 w-4 xl:hidden" aria-hidden />
+                      <span className="hidden xl:inline">Ver perfil</span>
                     </Link>
                     <Button
                       type="button"
                       onClick={openBookingDialog}
                       aria-label={`Reservar una sesión con ${resolvedName}`}
-                      onFocus={() =>
-                        speak(`Botón. Reservar una sesión con ${resolvedName}.`)
-                      }
+                      onFocus={() => speak(`Botón. Reservar una sesión con ${resolvedName}.`)}
                       onBlur={stop}
-                      className="h-10 rounded-full bg-[#95C9FC] px-4 text-sm font-semibold text-[#10314F] hover:bg-[#7FB8F5]"
+                      className="h-10 w-10 rounded-full bg-[#95C9FC] px-0 text-sm font-semibold text-[#10314F] hover:bg-[#7FB8F5] xl:w-auto xl:px-4"
                     >
-                      <CalendarDays className="mr-2 h-4 w-4" />
-                      Reservar
+                      <CalendarDays className="h-4 w-4 xl:mr-2" />
+                      <span className="hidden xl:inline">Reservar</span>
                     </Button>
                   </>
                 ) : null}
@@ -690,8 +689,8 @@ function MessagesPageContent() {
                         <div className={`flex max-w-[min(34rem,78%)] flex-col ${isMe ? "items-end" : "items-start"}`}>
                           <div
                             className={`rounded-2xl border px-4 py-3 shadow-sm ${isMe
-                                ? "rounded-br-md border-[#95C9FC] bg-[#95C9FC] text-[#10314f]"
-                                : "rounded-bl-md border-border bg-[#F8FBFF] text-foreground"
+                              ? "rounded-br-md border-[#95C9FC] bg-[#95C9FC] text-[#10314f]"
+                              : "rounded-bl-md border-border bg-[#F8FBFF] text-foreground"
                               }`}
                           >
                             <p className="break-words text-sm leading-6">{m.content}</p>
