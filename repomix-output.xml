@@ -104,6 +104,9 @@ frontend/
             comments/
               route.ts
           route.ts
+      gw/
+        [...path]/
+          route.ts
       media/
         upload/
           route.ts
@@ -217,6 +220,7 @@ frontend/
     feed-store.ts
     map-tutor-coords.ts
     mapbox-env.ts
+    ngrok.ts
     rating-events.ts
     surface-styles.ts
     tutor-search.ts
@@ -664,32 +668,62 @@ SETUP.md
 <files>
 This section contains the contents of the repository's files.
 
-<file path="frontend/vercel.json">
-{
-  "functions": { "app/api/**/route.ts": { "maxDuration": 60 } }
+<file path="frontend/app/api/gw/[...path]/route.ts">
+import { cookies } from "next/headers";
+import { NextRequest, NextResponse } from "next/server";
+import { NGROK_SKIP_HEADERS } from "@/lib/ngrok";
+
+const API_URL = process.env.INTERNAL_API_URL || "http://gateway:8000";
+
+export const dynamic = "force-dynamic";
+
+type Context = { params: Promise<{ path: string[] }> };
+
+async function proxy(request: NextRequest, { params }: Context) {
+  const { path } = await params;
+  const target = `${API_URL}/${path.join("/")}${request.nextUrl.search}`;
+
+  const headers: Record<string, string> = { ...NGROK_SKIP_HEADERS };
+  for (const name of ["content-type", "accept", "authorization"]) {
+    const value = request.headers.get(name);
+    if (value) headers[name] = value;
+  }
+  if (!headers.authorization) {
+    const token = (await cookies()).get("token")?.value;
+    if (token) headers.authorization = `Bearer ${token}`;
+  }
+
+  const hasBody = request.method !== "GET" && request.method !== "HEAD";
+  try {
+    const upstream = await fetch(target, {
+      method: request.method,
+      headers,
+      body: hasBody ? request.body : undefined,
+      cache: "no-store",
+      redirect: "manual",
+      ...(hasBody ? { duplex: "half" } : {}),
+    } as RequestInit);
+
+    const responseHeaders = new Headers();
+    const contentType = upstream.headers.get("content-type");
+    if (contentType) responseHeaders.set("content-type", contentType);
+
+    return new NextResponse(upstream.body, { status: upstream.status, headers: responseHeaders });
+  } catch {
+    return NextResponse.json({ detail: "No se pudo contactar el gateway" }, { status: 502 });
+  }
 }
+
+export { proxy as GET, proxy as POST, proxy as PUT, proxy as PATCH, proxy as DELETE };
 </file>
 
-<file path="DEPLOY_RENDER.md.rej">
-diff a/DEPLOY_RENDER.md b/DEPLOY_RENDER.md	(rejected hunks)
-@@ -82,4 +82,15 @@ Render lo muestra en *Events*. Sube **solo ese servicio** a un plan de pago con
- 
- ## Limitaciones conocidas
- - Los servicios de Render son **públicos** (sin red privada en free). Cada uno valida el JWT; antes de producción conviene una clave interna compartida gateway → servicios.
--- Primer request tras dormir: ~1 min por servicio. Usa `/wake` antes de demostrar.
-\ No newline at end of file
-+- Primer request tras dormir: ~1 min por servicio. Usa `/wake` antes de demostrar.
-+
-+## Probar en local otra persona (sin ngrok y sin tu cuenta)
-+**No compartas tu contraseña ni tu authtoken de ngrok:** dan control de tu cuenta. Además, el front de Render apunta solo a TU dominio de ngrok, así que el túnel de otra persona no serviría para él. Un colaborador no necesita ngrok: levanta todo en su PC y usa el front local.
-+
-+1. Docker Desktop y `git clone` del repo.
-+2. Copiar `.env.example` a `.env` y pedirte, por un canal seguro (gestor de contraseñas), los valores de `DATABASE_URL` y `JWT_SECRET` (los mismos que usan los servicios de Render) y el token público de Mapbox. `DATABASE_URL` da acceso total a la base de datos: dáselo solo a gente de confianza y rota la contraseña cuando termine.
-+3. `EMBEDDING_DTYPE` igual al de los embeddings guardados (hoy `q8`); si no, la búsqueda semántica se desajusta.
-+4. `docker compose up -d --build` (gateway, tutor, chat y redis) y `docker compose --profile frontend up -d --build` (front en http://localhost:3000). La primera vez el tutor descarga el modelo de embeddings.
-+5. Despertar los servicios de Render: `http://localhost:8000/wake` (con `?key=` si hay `WAKE_KEY`).
-+6. Con el front local en `http://`, `COOKIE_SECURE=false` (ya viene en el ejemplo); si no, el login falla en Safari o por IP de red.
-+Si además quiere probar contra el front de Render, solo puede haber **un** túnel apuntando a ese dominio: coordinen quién lo tiene encendido.
+<file path="frontend/lib/ngrok.ts">
+/**
+ * Ngrok (túneles gratuitos) responde con una página HTML de advertencia a las peticiones que parecen
+ * de navegador. Enviar este header (cualquier valor) la omite.
+ */
+export const NGROK_SKIP_HEADER = "ngrok-skip-browser-warning";
+export const NGROK_SKIP_HEADERS: Record<string, string> = { [NGROK_SKIP_HEADER]: "1" };
 </file>
 
 <file path="cambios/cambiosLeninSep2.diff">
@@ -5031,10 +5065,14 @@ export function useAccessibility() {
 </file>
 
 <file path="frontend/lib/api.ts">
+import { NGROK_SKIP_HEADER } from "@/lib/ngrok";
+
 // URL diferenciada: Server Side se comunica por red interna de docker, Client Side localmente.
 export const API_URL = typeof window === "undefined" 
   ? process.env.INTERNAL_API_URL || "http://gateway:8000"
   : process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+const GATEWAY_PROXY_PATH = "/api/gw";
 
 export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const isInternalApiRoute = endpoint.startsWith("/api/");
@@ -5043,6 +5081,11 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): 
   // Añadimos Content-Type json por defecto si no es FormData
   if (!headers.has("Content-Type") && !(options.body instanceof FormData) && !(options.body instanceof URLSearchParams)) {
     headers.set("Content-Type", "application/json");
+  }
+
+  // Ngrok interpone una página HTML de advertencia; este header la omite en llamadas directas
+  if (!headers.has(NGROK_SKIP_HEADER)) {
+    headers.set(NGROK_SKIP_HEADER, "1");
   }
   
   // Manejo de token mixto (funciona tanto para SSR como Cliente, evitando error next/headers nativo si se corre full cliente)
@@ -5066,7 +5109,12 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): 
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const targetUrl = isInternalApiRoute ? endpoint : `${API_URL}${endpoint}`;
+  // En el navegador, las llamadas al Gateway pasan por el proxy same-origin (/api/gw) para evitar CORS con Ngrok
+  const targetUrl = isInternalApiRoute
+    ? endpoint
+    : typeof window === "undefined"
+      ? `${API_URL}${endpoint}`
+      : `${GATEWAY_PROXY_PATH}${endpoint}`;
 
   const response = await fetch(targetUrl, {
     ...options,
@@ -5704,6 +5752,12 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 }
 </file>
 
+<file path="frontend/vercel.json">
+{
+  "functions": { "app/api/**/route.ts": { "maxDuration": 60 } }
+}
+</file>
+
 <file path="gateway/app/api/index.js">
 import { buildContainer } from '../src/container.js';
 import { createApp } from '../src/app.js';
@@ -6180,126 +6234,6 @@ for (const [uid, name] of USERS) {
 }
 </file>
 
-<file path="services/auth-service/app/src/application/services/auth.service.js">
-import { isValidRole } from '../../domain/entities/roles.js';
-import {
-  InvalidRoleError,
-  EmailAlreadyRegisteredError,
-  InvalidCredentialsError,
-  InvalidTokenError,
-  InactiveUserError,
-  InvalidRefreshTokenError,
-  ExpiredRefreshTokenError,
-} from '../../domain/errors/index.js';
-
-export class AuthService {
-  constructor({ userRepository, refreshTokenRepository, passwordHasher, tokenProvider }) {
-    this.userRepository = userRepository;
-    this.refreshTokenRepository = refreshTokenRepository;
-    this.passwordHasher = passwordHasher;
-    this.tokenProvider = tokenProvider;
-  }
-
-  async register({ email, password, role }) {
-    if (!isValidRole(role)) throw new InvalidRoleError();
-    if (await this.userRepository.findByEmail(email)) throw new EmailAlreadyRegisteredError();
-
-    const user = await this.userRepository.create({
-      email,
-      passwordHash: await this.passwordHasher.hash(password),
-      role,
-    });
-    return this.#issueSession(user);
-  }
-
-  async login({ email, password }) {
-    const user = await this.userRepository.findByEmail(email);
-    if (!user || !(await this.passwordHasher.verify(password, user.passwordHash))) {
-      throw new InvalidCredentialsError();
-    }
-    return this.#issueSession(user);
-  }
-
-  async refresh(refreshToken) {
-    const payload = this.tokenProvider.decode(refreshToken);
-    if (!payload || payload.type !== 'refresh') throw new InvalidRefreshTokenError();
-
-    const userId = payload.sub;
-    const stored = await this.refreshTokenRepository.findByUserId(userId);
-
-    let validToken = null;
-    for (const token of stored) {
-      if (!token.isExpired() && (await this.passwordHasher.verify(refreshToken, token.tokenHash))) {
-        validToken = token;
-        break;
-      }
-    }
-    if (!validToken) throw new ExpiredRefreshTokenError();
-
-    const user = await this.userRepository.findById(userId);
-    if (!user) throw new InvalidRefreshTokenError();
-
-    const accessToken = this.tokenProvider.createAccessToken(user.id, user.role);
-    const { token: newRefreshToken, expiresAt } = this.tokenProvider.createRefreshToken(user.id);
-
-    await this.refreshTokenRepository.replace(validToken.id, {
-      userId: user.id,
-      tokenHash: await this.passwordHasher.hash(newRefreshToken),
-      expiresAt,
-    });
-
-    return { accessToken, refreshToken: newRefreshToken };
-  }
-
-  async logout(user) {
-    await this.refreshTokenRepository.deleteByUserId(user.id);
-  }
-
-  verifyToken(token) {
-    const payload = this.tokenProvider.decode(token);
-    if (!payload) return { valid: false, userId: null, role: null };
-    return { valid: true, userId: String(payload.sub), role: payload.role ?? null };
-  }
-
-  getWsToken(user) {
-    return this.tokenProvider.createAccessToken(user.id, user.role);
-  }
-
-  async promoteToTutor(user) {
-    if (user.role !== 'tutor') {
-      user.promoteToTutor();
-      await this.userRepository.updateRole(user.id, user.role);
-    }
-    return {
-      accessToken: this.tokenProvider.createAccessToken(user.id, user.role),
-      role: user.role,
-    };
-  }
-
-  /** Resolves the user behind a bearer access token (used by the auth middleware). */
-  async authenticate(token) {
-    const payload = this.tokenProvider.decode(token);
-    if (!payload || !payload.sub) throw new InvalidTokenError();
-
-    const user = await this.userRepository.findById(payload.sub);
-    if (!user || !user.isActive) throw new InactiveUserError();
-    return user;
-  }
-
-  async #issueSession(user) {
-    const accessToken = this.tokenProvider.createAccessToken(user.id, user.role);
-    const { token: refreshToken, expiresAt } = this.tokenProvider.createRefreshToken(user.id);
-
-    await this.refreshTokenRepository.create({
-      userId: user.id,
-      tokenHash: await this.passwordHasher.hash(refreshToken),
-      expiresAt,
-    });
-    return { accessToken, refreshToken, user };
-  }
-}
-</file>
-
 <file path="services/auth-service/app/src/domain/entities/RefreshToken.js">
 export class RefreshToken {
   constructor({ id, userId, tokenHash, expiresAt, createdAt }) {
@@ -6458,63 +6392,6 @@ export class RefreshTokenRepository {
 
   async deleteByUserId(userId) {
     await this.pool.query('DELETE FROM authe.refresh_tokens WHERE user_id = $1', [userId]);
-  }
-}
-</file>
-
-<file path="services/auth-service/app/src/infrastructure/repositories/user.repository.js">
-import { randomUUID } from 'node:crypto';
-import { User } from '../../domain/entities/User.js';
-import { EmailAlreadyRegisteredError } from '../../domain/errors/index.js';
-
-const toEntity = (row) =>
-  row
-    ? new User({
-        id: row.id,
-        email: row.email,
-        passwordHash: row.password_hash,
-        role: row.role,
-        isActive: row.is_active,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-      })
-    : null;
-
-export class UserRepository {
-  constructor(pool) {
-    this.pool = pool;
-  }
-
-  async findById(id) {
-    const { rows } = await this.pool.query('SELECT * FROM authe.users WHERE id = $1 LIMIT 1', [id]);
-    return toEntity(rows[0]);
-  }
-
-  async findByEmail(email) {
-    const { rows } = await this.pool.query('SELECT * FROM authe.users WHERE email = $1 LIMIT 1', [email]);
-    return toEntity(rows[0]);
-  }
-
-  async create({ email, passwordHash, role }) {
-    try {
-      const { rows } = await this.pool.query(
-        `INSERT INTO authe.users (id, email, password_hash, role)
-         VALUES ($1, $2, $3, $4) RETURNING *`,
-        [randomUUID(), email, passwordHash, role],
-      );
-      return toEntity(rows[0]);
-    } catch (err) {
-      if (err.code === '23505') throw new EmailAlreadyRegisteredError(); // unique_violation (race)
-      throw err;
-    }
-  }
-
-  async updateRole(id, role) {
-    const { rows } = await this.pool.query(
-      'UPDATE authe.users SET role = $2, updated_at = now() WHERE id = $1 RETURNING *',
-      [id, role],
-    );
-    return toEntity(rows[0]);
   }
 }
 </file>
@@ -11840,6 +11717,28 @@ Render lo muestra en *Events*. Sube **solo ese servicio** a un plan de pago con 
 - Primer request tras dormir: ~1 min por servicio. Usa `/wake` antes de demostrar.
 </file>
 
+<file path="DEPLOY_RENDER.md.rej">
+diff a/DEPLOY_RENDER.md b/DEPLOY_RENDER.md	(rejected hunks)
+@@ -82,4 +82,15 @@ Render lo muestra en *Events*. Sube **solo ese servicio** a un plan de pago con
+ 
+ ## Limitaciones conocidas
+ - Los servicios de Render son **públicos** (sin red privada en free). Cada uno valida el JWT; antes de producción conviene una clave interna compartida gateway → servicios.
+-- Primer request tras dormir: ~1 min por servicio. Usa `/wake` antes de demostrar.
+\ No newline at end of file
++- Primer request tras dormir: ~1 min por servicio. Usa `/wake` antes de demostrar.
++
++## Probar en local otra persona (sin ngrok y sin tu cuenta)
++**No compartas tu contraseña ni tu authtoken de ngrok:** dan control de tu cuenta. Además, el front de Render apunta solo a TU dominio de ngrok, así que el túnel de otra persona no serviría para él. Un colaborador no necesita ngrok: levanta todo en su PC y usa el front local.
++
++1. Docker Desktop y `git clone` del repo.
++2. Copiar `.env.example` a `.env` y pedirte, por un canal seguro (gestor de contraseñas), los valores de `DATABASE_URL` y `JWT_SECRET` (los mismos que usan los servicios de Render) y el token público de Mapbox. `DATABASE_URL` da acceso total a la base de datos: dáselo solo a gente de confianza y rota la contraseña cuando termine.
++3. `EMBEDDING_DTYPE` igual al de los embeddings guardados (hoy `q8`); si no, la búsqueda semántica se desajusta.
++4. `docker compose up -d --build` (gateway, tutor, chat y redis) y `docker compose --profile frontend up -d --build` (front en http://localhost:3000). La primera vez el tutor descarga el modelo de embeddings.
++5. Despertar los servicios de Render: `http://localhost:8000/wake` (con `?key=` si hay `WAKE_KEY`).
++6. Con el front local en `http://`, `COOKIE_SECURE=false` (ya viene en el ejemplo); si no, el login falla en Safari o por IP de red.
++Si además quiere probar contra el front de Render, solo puede haber **un** túnel apuntando a ese dominio: coordinen quién lo tiene encendido.
+</file>
+
 <file path="frontend/app/(main)/bookings/page.tsx">
 "use client";
 
@@ -16151,6 +16050,126 @@ echo "╚═══════════════════════�
 echo ""
 </file>
 
+<file path="services/auth-service/app/src/application/services/auth.service.js">
+import { isValidRole } from '../../domain/entities/roles.js';
+import {
+  InvalidRoleError,
+  EmailAlreadyRegisteredError,
+  InvalidCredentialsError,
+  InvalidTokenError,
+  InactiveUserError,
+  InvalidRefreshTokenError,
+  ExpiredRefreshTokenError,
+} from '../../domain/errors/index.js';
+
+export class AuthService {
+  constructor({ userRepository, refreshTokenRepository, passwordHasher, tokenProvider }) {
+    this.userRepository = userRepository;
+    this.refreshTokenRepository = refreshTokenRepository;
+    this.passwordHasher = passwordHasher;
+    this.tokenProvider = tokenProvider;
+  }
+
+  async register({ email, password, role }) {
+    if (!isValidRole(role)) throw new InvalidRoleError();
+    if (await this.userRepository.findByEmail(email)) throw new EmailAlreadyRegisteredError();
+
+    const user = await this.userRepository.create({
+      email,
+      passwordHash: await this.passwordHasher.hash(password),
+      role,
+    });
+    return this.#issueSession(user);
+  }
+
+  async login({ email, password }) {
+    const user = await this.userRepository.findByEmail(email);
+    if (!user || !(await this.passwordHasher.verify(password, user.passwordHash))) {
+      throw new InvalidCredentialsError();
+    }
+    return this.#issueSession(user);
+  }
+
+  async refresh(refreshToken) {
+    const payload = this.tokenProvider.decode(refreshToken);
+    if (!payload || payload.type !== 'refresh') throw new InvalidRefreshTokenError();
+
+    const userId = payload.sub;
+    const stored = await this.refreshTokenRepository.findByUserId(userId);
+
+    let validToken = null;
+    for (const token of stored) {
+      if (!token.isExpired() && (await this.passwordHasher.verify(refreshToken, token.tokenHash))) {
+        validToken = token;
+        break;
+      }
+    }
+    if (!validToken) throw new ExpiredRefreshTokenError();
+
+    const user = await this.userRepository.findById(userId);
+    if (!user) throw new InvalidRefreshTokenError();
+
+    const accessToken = this.tokenProvider.createAccessToken(user.id, user.role);
+    const { token: newRefreshToken, expiresAt } = this.tokenProvider.createRefreshToken(user.id);
+
+    await this.refreshTokenRepository.replace(validToken.id, {
+      userId: user.id,
+      tokenHash: await this.passwordHasher.hash(newRefreshToken),
+      expiresAt,
+    });
+
+    return { accessToken, refreshToken: newRefreshToken };
+  }
+
+  async logout(user) {
+    await this.refreshTokenRepository.deleteByUserId(user.id);
+  }
+
+  verifyToken(token) {
+    const payload = this.tokenProvider.decode(token);
+    if (!payload) return { valid: false, userId: null, role: null };
+    return { valid: true, userId: String(payload.sub), role: payload.role ?? null };
+  }
+
+  getWsToken(user) {
+    return this.tokenProvider.createAccessToken(user.id, user.role);
+  }
+
+  async promoteToTutor(user) {
+    if (user.role !== 'tutor') {
+      user.promoteToTutor();
+      await this.userRepository.updateRole(user.id, user.role);
+    }
+    return {
+      accessToken: this.tokenProvider.createAccessToken(user.id, user.role),
+      role: user.role,
+    };
+  }
+
+  /** Resolves the user behind a bearer access token (used by the auth middleware). */
+  async authenticate(token) {
+    const payload = this.tokenProvider.decode(token);
+    if (!payload || !payload.sub) throw new InvalidTokenError();
+
+    const user = await this.userRepository.findById(payload.sub);
+    if (!user || user.isActive === false) throw new InactiveUserError(); // NULL (filas antiguas) cuenta como activo
+    return user;
+  }
+
+  async #issueSession(user) {
+    const accessToken = this.tokenProvider.createAccessToken(user.id, user.role);
+    const { token: refreshToken, expiresAt } = this.tokenProvider.createRefreshToken(user.id);
+
+    await this.refreshTokenRepository.create({
+      userId: user.id,
+      tokenHash: await this.passwordHasher.hash(refreshToken),
+      expiresAt,
+    });
+    return { accessToken, refreshToken, user };
+  }
+}
+</file>
+
 <file path="services/auth-service/app/src/config/env.js">
 import 'dotenv/config';
 
@@ -16194,6 +16213,63 @@ export const pool = new pg.Pool({
   // Small by default: 6 services share the Supabase pooler (override with PG_POOL_MAX).
   max: Number(process.env.PG_POOL_MAX ?? 5),
 });
+</file>
+
+<file path="services/auth-service/app/src/infrastructure/repositories/user.repository.js">
+import { randomUUID } from 'node:crypto';
+import { User } from '../../domain/entities/User.js';
+import { EmailAlreadyRegisteredError } from '../../domain/errors/index.js';
+
+const toEntity = (row) =>
+  row
+    ? new User({
+        id: row.id,
+        email: row.email,
+        passwordHash: row.password_hash,
+        role: row.role,
+        isActive: row.is_active,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      })
+    : null;
+
+export class UserRepository {
+  constructor(pool) {
+    this.pool = pool;
+  }
+
+  async findById(id) {
+    const { rows } = await this.pool.query('SELECT * FROM authe.users WHERE id = $1 LIMIT 1', [id]);
+    return toEntity(rows[0]);
+  }
+
+  async findByEmail(email) {
+    const { rows } = await this.pool.query('SELECT * FROM authe.users WHERE email = $1 LIMIT 1', [email]);
+    return toEntity(rows[0]);
+  }
+
+  async create({ email, passwordHash, role }) {
+    try {
+      const { rows } = await this.pool.query(
+        `INSERT INTO authe.users (id, email, password_hash, role, is_active)
+         VALUES ($1, $2, $3, $4, TRUE) RETURNING *`,
+        [randomUUID(), email, passwordHash, role],
+      );
+      return toEntity(rows[0]);
+    } catch (err) {
+      if (err.code === '23505') throw new EmailAlreadyRegisteredError(); // unique_violation (race)
+      throw err;
+    }
+  }
+
+  async updateRole(id, role) {
+    const { rows } = await this.pool.query(
+      'UPDATE authe.users SET role = $2, updated_at = now() WHERE id = $1 RETURNING *',
+      [id, role],
+    );
+    return toEntity(rows[0]);
+  }
+}
 </file>
 
 <file path="services/auth-service/app/src/app.js">
@@ -18717,28 +18793,6 @@ function LegendItem({ color, label }: { color: string; label: string }) {
 }
 </file>
 
-<file path="frontend/.env.example">
-# Variables del front (Vercel: Project -> Settings -> Environment Variables; Production y Preview)
-# Las NEXT_PUBLIC_* se incrustan en el build: tras cambiarlas hay que redeployar.
-
-# URL pública del gateway (https, sin barra final). Navegador:
-NEXT_PUBLIC_API_URL=https://<tu-gateway>
-# La misma URL para las rutas /api/* del servidor de Next:
-INTERNAL_API_URL=https://<tu-gateway>
-
-# Host del WebSocket del chat, SIN ruta (la app añade /chat/ws/<id>). Vercel no soporta WebSocket:
-# usa el gateway si está en Render, o el chat-service directo (https://<chat>.onrender.com -> wss://<chat>.onrender.com).
-NEXT_PUBLIC_WS_URL=wss://<host-del-websocket>
-
-# Token público de Mapbox (restríngelo por URL en el panel de Mapbox)
-NEXT_PUBLIC_MAPBOX_TOKEN=pk.xxxxx
-
-# 1 = centrar el mapa en Medellín aunque el usuario esté en otro lugar
-NEXT_PUBLIC_FORCE_MEDELLIN=0
-
-# No definas COOKIE_SECURE en Vercel: en producción es true por defecto (HTTPS).
-</file>
-
 <file path="frontend/.gitignore">
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
@@ -19086,42 +19140,6 @@ export class TutorProfileRepository {
 }
 </file>
 
-<file path=".env.example">
-# Copia este archivo a .env (NO lo subas a git). Los valores secretos se comparten por un gestor de
-# contraseñas, nunca por chat ni por git. Rótalos cuando alguien deje de colaborar.
-
-# ── Base de datos (Supabase, pooler transaction, puerto 6543) ──
-DATABASE_URL=postgresql://USUARIO:PASSWORD@HOST-DEL-POOLER:6543/postgres
-
-# ── JWT: debe ser EXACTAMENTE el mismo que usan los servicios de Render ──
-JWT_SECRET=
-JWT_ALGORITHM=HS256
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES=1440
-JWT_REFRESH_TOKEN_EXPIRE_DAYS=7
-
-REDIS_URL=redis://redis:6379
-
-# ── tutor-service: el dtype debe coincidir con el de los embeddings guardados en la DB ──
-EMBEDDING_DTYPE=q8
-BACKFILL_EMBEDDINGS_ON_START=false
-SEMANTIC_MIN_SEPARATION=0.025
-SEMANTIC_RELATIVE_MARGIN=0.03
-SEMANTIC_ABSOLUTE_CEILING=0.22
-
-# ── Gateway ──
-WAKE_KEY=
-# Orígenes del navegador permitidos (el front de Render y el front local):
-CORS_ORIGINS=http://localhost:3000
-
-# ── Front local (solo con: docker compose --profile frontend up -d --build) ──
-COOKIE_SECURE=false
-NEXT_PUBLIC_API_URL=http://localhost:8000
-NEXT_PUBLIC_WS_URL=ws://localhost:8000
-INTERNAL_API_URL=http://gateway:8000
-NEXT_PUBLIC_MAPBOX_TOKEN=
-NEXT_PUBLIC_FORCE_MEDELLIN=0
-</file>
-
 <file path="funtionalities_nw.md">
 # Nico - Calificar expertos con comentarios
 # Santiago G - Arreglo de comentarios y se agrego la funcionalidad de hacerlo en las publicaciones
@@ -19277,6 +19295,28 @@ export async function GET(
 }
 </file>
 
+<file path="frontend/.env.example">
+# Variables del front (Vercel: Project -> Settings -> Environment Variables; Production y Preview)
+# Las NEXT_PUBLIC_* se incrustan en el build: tras cambiarlas hay que redeployar.
+
+# URL pública del gateway (https, sin barra final). Navegador:
+NEXT_PUBLIC_API_URL=https://<tu-gateway>
+# La misma URL para las rutas /api/* del servidor de Next:
+INTERNAL_API_URL=https://<tu-gateway>
+
+# Host del WebSocket del chat, SIN ruta (la app añade /chat/ws/<id>). Vercel no soporta WebSocket:
+# usa el gateway si está en Render, o el chat-service directo (https://<chat>.onrender.com -> wss://<chat>.onrender.com).
+NEXT_PUBLIC_WS_URL=wss://<host-del-websocket>
+
+# Token público de Mapbox (restríngelo por URL en el panel de Mapbox)
+NEXT_PUBLIC_MAPBOX_TOKEN=pk.xxxxx
+
+# 1 = centrar el mapa en Medellín aunque el usuario esté en otro lugar
+NEXT_PUBLIC_FORCE_MEDELLIN=0
+
+# No definas COOKIE_SECURE en Vercel: en producción es true por defecto (HTTPS).
+</file>
+
 <file path="frontend/Dockerfile">
 FROM node:20-alpine AS base
 
@@ -19424,6 +19464,42 @@ DO $$
 BEGIN
   RAISE NOTICE '✅ Seed compacto aplicado: 5 usuarios normales y 5 expertos';
 END $$;
+</file>
+
+<file path=".env.example">
+# Copia este archivo a .env (NO lo subas a git). Los valores secretos se comparten por un gestor de
+# contraseñas, nunca por chat ni por git. Rótalos cuando alguien deje de colaborar.
+
+# ── Base de datos (Supabase, pooler transaction, puerto 6543) ──
+DATABASE_URL=postgresql://USUARIO:PASSWORD@HOST-DEL-POOLER:6543/postgres
+
+# ── JWT: debe ser EXACTAMENTE el mismo que usan los servicios de Render ──
+JWT_SECRET=
+JWT_ALGORITHM=HS256
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES=1440
+JWT_REFRESH_TOKEN_EXPIRE_DAYS=7
+
+REDIS_URL=redis://redis:6379
+
+# ── tutor-service: el dtype debe coincidir con el de los embeddings guardados en la DB ──
+EMBEDDING_DTYPE=q8
+BACKFILL_EMBEDDINGS_ON_START=false
+SEMANTIC_MIN_SEPARATION=0.025
+SEMANTIC_RELATIVE_MARGIN=0.03
+SEMANTIC_ABSOLUTE_CEILING=0.22
+
+# ── Gateway ──
+WAKE_KEY=
+# Orígenes del navegador permitidos (el front de Render y el front local):
+CORS_ORIGINS=http://localhost:3000
+
+# ── Front local (solo con: docker compose --profile frontend up -d --build) ──
+COOKIE_SECURE=false
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_WS_URL=ws://localhost:8000
+INTERNAL_API_URL=http://gateway:8000
+NEXT_PUBLIC_MAPBOX_TOKEN=
+NEXT_PUBLIC_FORCE_MEDELLIN=0
 </file>
 
 <file path="frontend/app/layout.tsx">
@@ -19964,40 +20040,6 @@ export function AppSidebar({ role }: { role?: string }) {
     </>
   );
 }
-</file>
-
-<file path="gateway/app/src/config/env.js">
-import 'dotenv/config';
-
-// path segment -> [env override, default URL]. Defaults are the docker-compose service names.
-const SERVICE_DEFS = {
-  auth: ['AUTH_SERVICE_URL', 'https://authservice-1-fc6f.onrender.com'],
-  users: ['USER_SERVICE_URL', 'https://userservice-1-jqgy.onrender.com'],
-  tutors: ['TUTOR_SERVICE_URL', 'http://tutor-service:8003'],
-  geo: ['GEO_SERVICE_URL', 'https://geoservice-1.onrender.com'],
-  chat: ['CHAT_SERVICE_URL', 'http://chat-service:8005'],
-  media: ['MEDIA_SERVICE_URL', 'https://mediaservice-1.onrender.com/'], // production: set MEDIA_SERVICE_URL (never hardcode URLs here)
-  bookings: ['BOOKING_SERVICE_URL', 'https://bookingservice-1-t0ec.onrender.com'],
-};
-
-const list = (raw) => (raw ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-const withoutTrailingSlash = (url) => url.replace(/\/+$/, '');
-
-export const config = {
-  port: Number(process.env.PORT ?? 8000),
-  // Free Render instances need ~1 min to wake up. On Vercel keep it below the function's maxDuration (60 s).
-  timeoutMs: Number(process.env.GATEWAY_TIMEOUT_MS ?? 60000),
-  // Comma separated list of allowed browser origins. Empty = echo any origin (local development).
-  corsOrigins: list(process.env.CORS_ORIGINS),
-  // If set, /wake requires ?key=<WAKE_KEY> (otherwise anyone could keep your free hours burning).
-  wakeKey: process.env.WAKE_KEY ?? '',
-  services: Object.fromEntries(
-    Object.entries(SERVICE_DEFS).map(([name, [envName, fallback]]) => [
-      name,
-      withoutTrailingSlash(process.env[envName] ?? fallback),
-    ]),
-  ),
-};
 </file>
 
 <file path="frontend/app/(main)/profile/[id]/page.tsx">
@@ -21320,6 +21362,40 @@ textarea {
 }
 </file>
 
+<file path="gateway/app/src/config/env.js">
+import 'dotenv/config';
+
+// path segment -> [env override, default URL]. Defaults are the docker-compose service names.
+const SERVICE_DEFS = {
+  auth: ['AUTH_SERVICE_URL', 'https://authservice-1-fc6f.onrender.com'],
+  users: ['USER_SERVICE_URL', 'https://userservice-1-jqgy.onrender.com'],
+  tutors: ['TUTOR_SERVICE_URL', 'http://tutor-service:8003'],
+  geo: ['GEO_SERVICE_URL', 'https://geoservice-1.onrender.com'],
+  chat: ['CHAT_SERVICE_URL', 'http://chat-service:8005'],
+  media: ['MEDIA_SERVICE_URL', 'https://mediaservice-1.onrender.com/'], // production: set MEDIA_SERVICE_URL (never hardcode URLs here)
+  bookings: ['BOOKING_SERVICE_URL', 'https://bookingservice-1-t0ec.onrender.com'],
+};
+
+const list = (raw) => (raw ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+const withoutTrailingSlash = (url) => url.replace(/\/+$/, '');
+
+export const config = {
+  port: Number(process.env.PORT ?? 8000),
+  // Free Render instances need ~1 min to wake up. On Vercel keep it below the function's maxDuration (60 s).
+  timeoutMs: Number(process.env.GATEWAY_TIMEOUT_MS ?? 60000),
+  // Comma separated list of allowed browser origins. Empty = echo any origin (local development).
+  corsOrigins: list(process.env.CORS_ORIGINS),
+  // If set, /wake requires ?key=<WAKE_KEY> (otherwise anyone could keep your free hours burning).
+  wakeKey: process.env.WAKE_KEY ?? '',
+  services: Object.fromEntries(
+    Object.entries(SERVICE_DEFS).map(([name, [envName, fallback]]) => [
+      name,
+      withoutTrailingSlash(process.env[envName] ?? fallback),
+    ]),
+  ),
+};
+</file>
+
 <file path=".gitignore">
 # ─── ENTORNO ────────────────────────────────────────────────────────────────────
 .env
@@ -21636,878 +21712,6 @@ Con la sesión de admin iniciada aparece "Verificaciones" en la barra lateral.
 
 - Frontend: http://localhost:3000
 - Gateway: http://localhost:8000
-</file>
-
-<file path="frontend/app/(main)/messages/page.tsx">
-"use client";
-
-import { Suspense, useEffect, useMemo, useState, useRef, type ChangeEvent, type FormEvent } from "react";
-import Link from "next/link";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { UserAvatar } from "@/components/user-avatar";
-import { AlertCircle, CalendarDays, Loader2, Search, Send, ArrowLeft, UserRound } from "lucide-react";
-import { toast } from "sonner";
-import { useRouter, useSearchParams } from "next/navigation";
-import { fetchApi } from "@/lib/api";
-import { appPanelClass, appPanelSoftClass } from "@/lib/surface-styles";
-import { useScreenReader } from "@/components/providers/ScreenReaderContext";
-
-
-/* ---------------- TYPES (sin cambios) ---------------- */
-
-interface Message {
-  id: string;
-  conversation_id?: string;
-  sender_id: string;
-  receiver_id: string;
-  content: string;
-  timestamp: string;
-  is_read: boolean;
-}
-
-interface MyUserProfile {
-  user_id: string;
-  display_name?: string;
-  avatar_url?: string;
-}
-
-interface ConversationSummary {
-  id: string;
-  participant_ids: string[];
-  other_participant_id?: string | null;
-  last_message?: string | null;
-  last_message_at?: string | null;
-  updated_at?: string;
-}
-
-interface UserProfileSummary {
-  display_name?: string;
-  avatar_url?: string;
-}
-
-interface ConversationItem extends ConversationSummary {
-  partnerName: string;
-  partnerAvatar?: string;
-}
-
-/* ---------------- COMPONENT ---------------- */
-
-function MessagesPageContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const initialReceiverId = searchParams.get("userId") || "";
-
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [newMessage, setNewMessage] = useState("");
-  const wsRef = useRef<WebSocket | null>(null);
-  const [socket, setSocket] = useState<WebSocket | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
-  const [receiverId, setReceiverId] = useState(initialReceiverId);
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const [meId, setMeId] = useState<string | null>(null);
-  const [meDisplayName, setMeDisplayName] = useState("Tú");
-  const [meAvatar, setMeAvatar] = useState<string | undefined>();
-  const [isLoading, setIsLoading] = useState(true);
-  const [conversations, setConversations] = useState<ConversationItem[]>([]);
-  const [receiverProfile, setReceiverProfile] = useState<UserProfileSummary | null>(null);
-  const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
-  const [bookingDate, setBookingDate] = useState("");
-  const [bookingTime, setBookingTime] = useState("");
-  const [bookingDurationMinutes, setBookingDurationMinutes] = useState(60);
-  const [bookingSubmitting, setBookingSubmitting] = useState(false);
-  const [showChatMobile, setShowChatMobile] = useState(Boolean(initialReceiverId));
-  const { speak, stop } = useScreenReader();
-
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const receiverIdRef = useRef(initialReceiverId);
-  const conversationIdRef = useRef<string | null>(null);
-
-  const scrollToBottom = () => {
-    window.setTimeout(() => {
-      if (scrollRef.current) {
-        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-      }
-    }, 0);
-  };
-
-  useEffect(() => {
-    receiverIdRef.current = receiverId;
-  }, [receiverId]);
-
-  useEffect(() => {
-    conversationIdRef.current = conversationId;
-  }, [conversationId]);
-
-  const isUuid = (value: string) =>
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim());
-
-  /* ---------------- CONVERSATIONS ---------------- */
-
-  const loadConversations = async () => {
-    try {
-      const response = await fetch("/api/chat/conversations");
-      if (!response.ok) throw new Error();
-
-      const list = (await response.json()) as ConversationSummary[];
-
-      const enriched = await Promise.all(
-        list.map(async (conversation) => {
-          const partnerId =
-            conversation.other_participant_id ||
-            conversation.participant_ids.find((id) => id !== meId) ||
-            "";
-
-          const profile = partnerId
-            ? await fetchApi<UserProfileSummary>(`/users/profiles/${partnerId}`).catch(() => null)
-            : null;
-
-          return {
-            ...conversation,
-            partnerName: profile?.display_name || `Chat ${partnerId.slice(0, 8)}`,
-            partnerAvatar: profile?.avatar_url,
-          };
-        })
-      );
-
-      setConversations(enriched);
-    } catch {
-      setConversations([]);
-    }
-  };
-
-  /* ---------------- CHAT HISTORY ---------------- */
-
-  const loadConversationMessages = async (convId: string) => {
-    try {
-      const response = await fetch(`/api/chat/messages/${convId}`);
-      if (!response.ok) return;
-
-      const history = await response.json();
-
-      setMessages(
-        history.map((msg: any) => ({
-          id: String(msg.id),
-          conversation_id: convId,
-          sender_id: String(msg.sender_id),
-          receiver_id: receiverIdRef.current,
-          content: msg.content,
-          timestamp: msg.created_at,
-          is_read: msg.is_read,
-        }))
-      );
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const loadReceiverProfile = async (participantId: string) => {
-    if (!participantId || !isUuid(participantId)) {
-      setReceiverProfile(null);
-      return;
-    }
-
-    const profile = await fetchApi<UserProfileSummary>(`/users/profiles/${participantId}`).catch(() => null);
-    setReceiverProfile(profile);
-  };
-
-  const ensureConversation = async (participantId: string) => {
-    try {
-      const response = await fetch("/api/chat/conversation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ participant_id: participantId }),
-      });
-
-      const data = await response.json();
-
-      setConversationId(data.id);
-      await loadConversationMessages(data.id);
-    } catch {
-      setConversationId(null);
-    }
-  };
-
-  const openConversation = async (participantId: string) => {
-    if (!participantId || !isUuid(participantId)) return;
-
-    setReceiverId(participantId);
-    setShowChatMobile(true);
-    setReceiverProfile(null);
-    await loadReceiverProfile(participantId);
-    await ensureConversation(participantId);
-  };
-
-  /* ---------------- SESSION ---------------- */
-
-  useEffect(() => {
-    fetch("/api/session")
-      .then((r) => r.json())
-      .then((user: MyUserProfile) => {
-        setMeId(user.user_id);
-        setMeDisplayName(user.display_name || "Tú");
-        setMeAvatar(user.avatar_url);
-      })
-      .finally(() => setIsLoading(false));
-  }, []);
-
-  useEffect(() => {
-    if (meId) loadConversations();
-  }, [meId]);
-
-  useEffect(() => {
-    if (!meId || !receiverId || !isUuid(receiverId)) {
-      return;
-    }
-
-    void openConversation(receiverId);
-  }, [meId, receiverId]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, conversationId]);
-
-  useEffect(() => {
-    if (!meId) {
-      return;
-    }
-
-    let cancelled = false;
-
-    const connectWebSocket = async () => {
-      try {
-        const tokenResponse = await fetch("/api/auth/ws-token");
-        if (!tokenResponse.ok) {
-          const errBody = await tokenResponse.json().catch(() => ({}));
-          const msg = errBody?.error || `WS token fetch failed (${tokenResponse.status})`;
-          toast.error(msg);
-          console.error("WS token fetch failed:", tokenResponse.status, errBody);
-          throw new Error(msg);
-        }
-
-        const { token } = await tokenResponse.json();
-        if (cancelled) return;
-
-        // En producción NEXT_PUBLIC_WS_URL apunta al host que atiende el WebSocket (sin ruta), p. ej.
-        // wss://mi-gateway.onrender.com. En local (sin definir o localhost) se usa <hostname>:8000 como antes.
-        const configuredWs = process.env.NEXT_PUBLIC_WS_URL?.replace(/\/+$/, "");
-        const useConfiguredWs = Boolean(configuredWs) && !/^wss?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(configuredWs as string);
-        const wsBaseUrl = useConfiguredWs
-          ? `${configuredWs}/chat/ws`
-          : `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.hostname}:8000/chat/ws`;
-        const ws = new WebSocket(`${wsBaseUrl}/${meId}?token=${token}`);
-
-        ws.onopen = () => {
-          setIsConnected(true);
-          console.info("WS open for meId:", meId);
-        };
-
-        ws.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            const messageContent = data.content || "";
-            const senderId = String(data.sender_id || "");
-
-            setMessages((prev: Message[]) => [
-              ...prev,
-              {
-                id: crypto.randomUUID(),
-                conversation_id: data.conversation_id || conversationIdRef.current || undefined,
-                sender_id: String(data.sender_id || ""),
-                receiver_id: receiverIdRef.current,
-                content: data.content || "",
-                timestamp: new Date().toISOString(),
-                is_read: false,
-              },
-            ]);
-            if (senderId !== meId && messageContent) {
-              speak(`Nuevo mensaje de ${resolvedName}: ${messageContent}`);
-            }
-          } catch (error) {
-            console.error("Error parseando mensaje WS:", error);
-          }
-        };
-
-        ws.onclose = (ev) => {
-          setIsConnected(false);
-          console.warn("WS closed", ev);
-          toast.error("Conexión de chat cerrada.");
-        };
-
-        ws.onerror = (ev) => {
-          setIsConnected(false);
-          console.error("WS error", ev);
-          toast.error("Error en la conexión de chat.");
-        };
-
-        wsRef.current = ws;
-        setSocket(ws);
-      } catch (error) {
-        console.error("Error conectando WebSocket:", error);
-        setIsConnected(false);
-      }
-    };
-
-    void connectWebSocket();
-
-    return () => {
-      cancelled = true;
-      wsRef.current?.close();
-      wsRef.current = null;
-      setSocket(null);
-      setIsConnected(false);
-    };
-  }, [meId]);
-
-  /* ---------------- UI HELPERS ---------------- */
-
-  const activeConversation = useMemo<ConversationItem | null>(
-    () =>
-      conversations.find((conversation: ConversationItem) => {
-        const partnerId =
-          conversation.other_participant_id ||
-          conversation.participant_ids.find((id) => id !== meId) ||
-          "";
-        return partnerId === receiverId;
-      }) || null,
-    [conversations, receiverId, meId]
-  );
-
-  const resolvedName =
-    receiverProfile?.display_name ||
-    activeConversation?.partnerName ||
-    (receiverId ? `Chat ${receiverId.slice(0, 8)}` : "Selecciona un chat");
-
-  const resolvedAvatar =
-    receiverProfile?.avatar_url ||
-    activeConversation?.partnerAvatar ||
-    `https://api.dicebear.com/7.x/avataaars/svg?seed=${receiverId || "empty"}`;
-
-  if (isLoading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  /* ---------------- UI ---------------- */
-
-  const handleSendMessage = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (!newMessage.trim()) {
-      return;
-    }
-
-    const activeSocket = wsRef.current;
-    const socketIsOpen = activeSocket?.readyState === WebSocket.OPEN;
-
-    if (!activeSocket || !socketIsOpen || !meId || !conversationIdRef.current) {
-      toast.error("No estás conectado al servidor de chat.");
-      return;
-    }
-
-    const payload = {
-      conversation_id: conversationIdRef.current,
-      receiver_id: receiverIdRef.current,
-      content: newMessage,
-    };
-
-    activeSocket.send(JSON.stringify(payload));
-    window.dispatchEvent(new Event("nearyx:network-updated"));
-
-    const optimisticMessage: Message = {
-      id: Math.random().toString(),
-      conversation_id: conversationIdRef.current,
-      sender_id: meId || "me",
-      receiver_id: receiverIdRef.current,
-      content: newMessage,
-      timestamp: new Date().toISOString(),
-      is_read: false,
-    };
-
-    setMessages((prev: Message[]) => [...prev, optimisticMessage]);
-    setNewMessage("");
-    void loadConversations();
-
-    setTimeout(() => {
-      if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }, 100);
-  };
-
-  const openBookingDialog = () => {
-    const now = new Date();
-    now.setHours(now.getHours() + 1);
-
-    const nextDate = now.toISOString().slice(0, 10);
-    const nextTime = now.toTimeString().slice(0, 5);
-
-    setBookingDate(nextDate);
-    setBookingTime(nextTime);
-    setBookingDurationMinutes(60);
-    setBookingDialogOpen(true);
-  };
-
-  const handleCreateBooking = async () => {
-    if (!receiverId || !isUuid(receiverId) || !bookingDate || !bookingTime || bookingSubmitting) {
-      return;
-    }
-
-    const startDateTime = new Date(`${bookingDate}T${bookingTime}:00`);
-    if (Number.isNaN(startDateTime.getTime())) {
-      toast.error("Selecciona una fecha y hora válidas.");
-      return;
-    }
-
-    const endDateTime = new Date(startDateTime.getTime() + Math.max(30, bookingDurationMinutes) * 60 * 1000);
-
-    setBookingSubmitting(true);
-    try {
-      const response = await fetch("/api/bookings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tutor_id: receiverId,
-          scheduled_start: startDateTime.toISOString(),
-          scheduled_end: endDateTime.toISOString(),
-        }),
-      });
-
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(data.error || data.detail || "No se pudo crear la reserva");
-      }
-
-      toast.success("Reserva creada");
-      speak(`Reserva con ${resolvedName} creada correctamente.`);
-      setBookingDialogOpen(false);
-      router.push("/bookings");
-    } catch (error) {
-      const err = error as Error;
-      toast.error(err.message || "No se pudo crear la reserva");
-      speak(
-        err.message
-          ? `No se pudo crear la reserva. ${err.message}`
-          : "No se pudo crear la reserva."
-      );
-    } finally {
-      setBookingSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="flex h-full min-h-0 w-full overflow-hidden bg-[#ffffff]">
-      <div className="flex h-full min-h-0 w-full gap-4 p-3 lg:p-4">
-        <aside className={`min-h-0 w-full flex-col overflow-hidden lg:flex lg:w-[360px] lg:shrink-0 ${showChatMobile ? "hidden" : "flex"} ${appPanelSoftClass}`}>
-          <div
-            tabIndex={0}
-            onFocus={() =>
-              speak(
-                `Sección Mensajes. Conversaciones. ${conversations.length
-                } conversaciones disponibles. Estado de conexión: ${isConnected ? "en línea" : "desconectado"
-                }.`
-              )
-            }
-            onBlur={stop}
-            className="flex-shrink-0 rounded-md border-b border-border px-5 py-4 focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.26em] text-muted-foreground">
-                  Mensajes
-                </p>
-                <h2 className="mt-2 text-[1.05rem] font-semibold text-foreground">
-                  Conversaciones
-                </h2>
-              </div>
-
-              <span
-                className={`rounded-full px-3 py-1 text-[11px] font-medium ${isConnected
-                  ? "bg-semantic-success/10 text-semantic-success"
-                  : "bg-muted text-muted-foreground"
-                  }`}
-              >
-                {isConnected ? "En línea" : "Desconectado"}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex-shrink-0 border-b border-border px-4 py-3">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar conversaciones..."
-                aria-label="Buscar conversaciones"
-                onFocus={() => speak("Campo de búsqueda. Buscar conversaciones.")}
-                onBlur={stop}
-                className="h-11 rounded-xl border-border bg-[#ffffff] pl-10 text-foreground placeholder:text-muted-foreground focus-visible:ring-primary/20"
-              />
-            </div>
-          </div>
-
-          <div className="min-h-0 flex-1 overflow-hidden">
-            <ScrollArea className="h-full">
-              <div className="space-y-2 p-2.5">
-                {conversations.length === 0 ? (
-                  <div
-                    tabIndex={0}
-                    onFocus={() => speak("No hay conversaciones aún.")}
-                    onBlur={stop}
-                    aria-label="No hay conversaciones aún"
-                    className="flex h-40 items-center justify-center rounded-xl border border-dashed border-border bg-[#ffffff] px-6 text-center focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    <div className="space-y-2">
-                      <AlertCircle className="mx-auto h-5 w-5 text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground">No hay conversaciones aún</p>
-                    </div>
-                  </div>
-                ) : (
-                  conversations.map((c: ConversationItem) => {
-                    const partnerId = c.other_participant_id || c.participant_ids.find((id) => id !== meId) || "";
-                    const isActive = partnerId === receiverId;
-
-                    return (
-                      <button
-                        key={c.id}
-                        onClick={() => openConversation(partnerId)}
-                        onFocus={() =>
-                          speak(
-                            `Conversación con ${c.partnerName}. ${c.last_message
-                              ? `Último mensaje: ${c.last_message}.`
-                              : "Sin mensajes."
-                            }`
-                          )
-                        }
-                        onBlur={stop}
-                        aria-label={`Conversación con ${c.partnerName}. ${c.last_message
-                          ? `Último mensaje: ${c.last_message}.`
-                          : "Sin mensajes."
-                          }`}
-                        className={`group w-full rounded-xl border px-4 py-3 text-left transition-all duration-200 ${isActive
-                          ? "border-[#95C9FC] bg-[#C6E2FE] shadow-sm"
-                          : "border-transparent hover:border-border hover:bg-[#F8FBFF]"
-                          }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <UserAvatar name={c.partnerName} size="mlg" avatarUrl={c.partnerAvatar} />
-
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <div className="truncate text-sm font-semibold text-foreground">
-                                  {c.partnerName}
-                                </div>
-                                <div className="mt-1 truncate text-xs text-muted-foreground">
-                                  {c.last_message || "Sin mensajes"}
-                                </div>
-                              </div>
-
-                              {c.last_message_at && (
-                                <div className="flex-shrink-0 text-[11px] text-muted-foreground">
-                                  {new Date(c.last_message_at).toLocaleTimeString([], {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-            </ScrollArea>
-          </div>
-        </aside>
-
-        <section className={`min-w-0 flex-1 flex-col overflow-hidden lg:flex ${showChatMobile ? "flex" : "hidden"} ${appPanelClass}`}>
-          <div
-            tabIndex={0}
-            onFocus={() =>
-              speak(
-                receiverId && isUuid(receiverId)
-                  ? `Chat con ${resolvedName}. ${conversationId ? "En línea." : "Selecciona un chat."}`
-                  : "No hay ninguna conversación seleccionada."
-              )
-            }
-            onBlur={stop}
-            className="flex-shrink-0 rounded-md border-b border-border px-3 py-3 focus:outline-none focus:ring-2 focus:ring-primary md:px-5 md:py-4"
-          >
-            <div className="flex items-center justify-between gap-2 md:gap-4">
-              <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="shrink-0 lg:hidden"
-                  aria-label="Volver a conversaciones"
-                  onClick={() => setShowChatMobile(false)}
-                >
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-
-                <div className="shrink-0">
-                  <UserAvatar name={resolvedName} size="mlg" avatarUrl={resolvedAvatar} />
-                </div>
-
-                <div className="min-w-0">
-                  <h3 className="truncate text-sm font-semibold text-foreground">{resolvedName}</h3>
-                  <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                    <span className="h-2 w-2 shrink-0 rounded-full bg-semantic-success" />
-                    <span className="truncate">{conversationId ? "En línea" : "Selecciona un chat"}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex shrink-0 items-center gap-1.5 md:gap-2">
-                {receiverId && isUuid(receiverId) ? (
-                  <>
-                    <Link
-                      href={`/profile/${receiverId}`}
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#2563EB]/20 bg-[#EEF6FF] text-sm font-semibold text-[#2563EB] transition-colors hover:bg-[#E0EFFF] xl:w-auto xl:px-4"
-                      aria-label={`Ver perfil de ${resolvedName}`}
-                      onFocus={() => speak(`Botón. Ver perfil de ${resolvedName}.`)}
-                      onBlur={stop}
-                    >
-                      <UserRound className="h-4 w-4 xl:hidden" aria-hidden />
-                      <span className="hidden xl:inline">Ver perfil</span>
-                    </Link>
-                    <Button
-                      type="button"
-                      onClick={openBookingDialog}
-                      aria-label={`Reservar una sesión con ${resolvedName}`}
-                      onFocus={() => speak(`Botón. Reservar una sesión con ${resolvedName}.`)}
-                      onBlur={stop}
-                      className="h-10 w-10 rounded-full bg-[#95C9FC] px-0 text-sm font-semibold text-[#10314F] hover:bg-[#7FB8F5] xl:w-auto xl:px-4"
-                    >
-                      <CalendarDays className="h-4 w-4 xl:mr-2" />
-                      <span className="hidden xl:inline">Reservar</span>
-                    </Button>
-                  </>
-                ) : null}
-              </div>
-            </div>
-          </div>
-
-          <div className="min-h-0 flex-1 overflow-hidden px-4 py-4 lg:px-5">
-            <ScrollArea ref={scrollRef} className="h-full pr-2">
-              <div className="flex flex-col gap-4">
-                {messages.length === 0 ? (
-                  <div
-                    tabIndex={0}
-                    onFocus={() => speak("No hay mensajes. Inicia una conversación.")}
-                    onBlur={stop}
-                    aria-label="No hay mensajes. Inicia una conversación."
-                    className="flex min-h-[24rem] items-center justify-center rounded-xl border border-dashed border-border bg-[#F8FBFF] px-6 text-center focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    <p className="text-sm text-muted-foreground">Inicia una conversación</p>
-                  </div>
-                ) : (
-                  messages.map((m: Message) => {
-                    const isMe = m.sender_id === meId;
-                    const time = new Date(m.timestamp).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    });
-
-                    return (
-                      <div
-                        key={m.id}
-                        tabIndex={0}
-                        onFocus={() =>
-                          speak(
-                            `${isMe ? "Tú" : resolvedName} dijo: ${m.content}. Hora: ${time}.`
-                          )
-                        }
-                        onBlur={stop}
-                        aria-label={`${isMe ? "Tú" : resolvedName} dijo: ${m.content}. Hora: ${time}.`}
-                        className={`flex items-end gap-3 rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${isMe ? "flex-row-reverse" : ""
-                          }`}
-                      >
-                        {!isMe && (
-                          <UserAvatar name={resolvedName} size="sm" avatarUrl={resolvedAvatar} />
-                        )}
-
-                        <div className={`flex max-w-[min(34rem,78%)] flex-col ${isMe ? "items-end" : "items-start"}`}>
-                          <div
-                            className={`rounded-2xl border px-4 py-3 shadow-sm ${isMe
-                              ? "rounded-br-md border-[#95C9FC] bg-[#95C9FC] text-[#10314f]"
-                              : "rounded-bl-md border-border bg-[#F8FBFF] text-foreground"
-                              }`}
-                          >
-                            <p className="break-words text-sm leading-6">{m.content}</p>
-                          </div>
-                          <span className="mt-1.5 text-[11px] text-muted-foreground">
-                            {time}
-                          </span>
-                        </div>
-
-                        {isMe && (
-                          <UserAvatar name={meDisplayName} size="sm" avatarUrl={meAvatar} />
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </ScrollArea>
-          </div>
-
-          <div className="flex-shrink-0 border-t border-border px-4 py-4 lg:px-5">
-            <form className="flex items-end gap-3" onSubmit={handleSendMessage}>
-              <Input
-                value={newMessage}
-                onChange={(event) => setNewMessage(event.target.value)}
-                onFocus={() => speak("Campo de mensaje. Escribe un mensaje.")}
-                onBlur={stop}
-                aria-label="Escribe un mensaje"
-                className="h-12 rounded-xl border-border bg-[#F8FBFF] px-4 text-foreground placeholder:text-muted-foreground focus-visible:ring-primary/20"
-              />
-              <Button
-                type="submit"
-                aria-label="Enviar mensaje"
-                onFocus={() => speak("Botón. Enviar mensaje.")}
-                onBlur={stop}
-                className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-[#CCFBF1] text-[#0F766E] transition-all hover:bg-[#B2F5EA]"
-              >
-                <Send
-                  aria-hidden="true"
-                  className="h-4 w-4"
-                />
-              </Button>
-            </form>
-          </div>
-        </section>
-      </div>
-
-      <Dialog open={bookingDialogOpen} onOpenChange={setBookingDialogOpen}>
-        <DialogContent className="w-[min(92vw,460px)]
-        "
-        >
-          <DialogHeader>
-            <DialogTitle
-              onFocus={() =>
-                speak(`Crear reserva con ${resolvedName}.`)
-              }
-              tabIndex={0}
-            >
-              Crear reserva
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="grid gap-4 py-2">
-            <div className="grid gap-2">
-              <label
-                className="text-sm font-medium text-foreground"
-                htmlFor="booking-date"
-              >
-                Fecha
-              </label>
-
-              <Input
-                id="booking-date"
-                type="date"
-                aria-label="Fecha de la reserva"
-                value={bookingDate}
-                onChange={(event) => setBookingDate(event.target.value)}
-                onFocus={() =>
-                  speak(
-                    bookingDate
-                      ? `Fecha de la reserva: ${bookingDate}.`
-                      : "Selecciona la fecha de la reserva."
-                  )
-                }
-                onBlur={stop}
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <label className="text-sm font-medium text-foreground" htmlFor="booking-time">Hora</label>
-              <Input
-                id="booking-time"
-                type="time"
-                aria-label="Hora de la reserva"
-                value={bookingTime}
-                onChange={(event) => setBookingTime(event.target.value)}
-                onFocus={() =>
-                  speak(
-                    bookingTime
-                      ? `Hora de la reserva: ${bookingTime}.`
-                      : "Selecciona la hora de la reserva."
-                  )
-                }
-                onBlur={stop}
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <label className="text-sm font-medium text-foreground" htmlFor="booking-duration">Duración en minutos</label>
-              <Input
-                id="booking-duration"
-                type="number"
-                min={30}
-                step={15}
-                aria-label="Duración de la reserva en minutos"
-                value={bookingDurationMinutes}
-                onChange={(event) =>
-                  setBookingDurationMinutes(Number(event.target.value) || 60)
-                }
-                onFocus={() =>
-                  speak(
-                    `Duración de la reserva: ${bookingDurationMinutes} minutos.`
-                  )
-                }
-                onBlur={stop}
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setBookingDialogOpen(false)}
-              onFocus={() => speak("Botón. Cancelar reserva.")}
-              onBlur={stop}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              onClick={handleCreateBooking}
-              disabled={bookingSubmitting}
-              onFocus={() =>
-                speak(
-                  bookingSubmitting
-                    ? "Creando reserva."
-                    : "Botón. Confirmar reserva."
-                )
-              }
-              onBlur={stop}
-            >
-              {bookingSubmitting ? "Creando..." : "Confirmar reserva"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
-
-/* ---------------- WRAPPER ---------------- */
-
-export default function MessagesPage() {
-  return (
-    <Suspense fallback={<Loader2 className="h-8 w-8 animate-spin" />}>
-      <MessagesPageContent />
-    </Suspense>
-  );
-}
 </file>
 
 <file path="frontend/app/(main)/dashboard/dashboard-content.tsx">
@@ -23314,6 +22518,889 @@ function PostCard({ post, toneIndex }: { post: FeedPost; toneIndex: number }) {
 }
 </file>
 
+<file path="frontend/app/(main)/messages/page.tsx">
+"use client";
+
+import { Suspense, useEffect, useMemo, useState, useRef, type ChangeEvent, type FormEvent } from "react";
+import Link from "next/link";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { UserAvatar } from "@/components/user-avatar";
+import { AlertCircle, CalendarDays, Loader2, Search, Send, ArrowLeft, UserRound } from "lucide-react";
+import { toast } from "sonner";
+import { useRouter, useSearchParams } from "next/navigation";
+import { fetchApi } from "@/lib/api";
+import { appPanelClass, appPanelSoftClass } from "@/lib/surface-styles";
+import { useScreenReader } from "@/components/providers/ScreenReaderContext";
+
+
+/* ---------------- TYPES (sin cambios) ---------------- */
+
+interface Message {
+  id: string;
+  conversation_id?: string;
+  sender_id: string;
+  receiver_id: string;
+  content: string;
+  timestamp: string;
+  is_read: boolean;
+}
+
+interface MyUserProfile {
+  user_id: string;
+  display_name?: string;
+  avatar_url?: string;
+}
+
+interface ConversationSummary {
+  id: string;
+  participant_ids: string[];
+  other_participant_id?: string | null;
+  last_message?: string | null;
+  last_message_at?: string | null;
+  updated_at?: string;
+}
+
+interface UserProfileSummary {
+  display_name?: string;
+  avatar_url?: string;
+}
+
+interface ConversationItem extends ConversationSummary {
+  partnerName: string;
+  partnerAvatar?: string;
+}
+
+/* ---------------- COMPONENT ---------------- */
+
+function MessagesPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialReceiverId = searchParams.get("userId") || "";
+
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState("");
+  const wsRef = useRef<WebSocket | null>(null);
+  const [socket, setSocket] = useState<WebSocket | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const [receiverId, setReceiverId] = useState(initialReceiverId);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [meId, setMeId] = useState<string | null>(null);
+  const [meDisplayName, setMeDisplayName] = useState("Tú");
+  const [meAvatar, setMeAvatar] = useState<string | undefined>();
+  const [isLoading, setIsLoading] = useState(true);
+  const [conversations, setConversations] = useState<ConversationItem[]>([]);
+  const [receiverProfile, setReceiverProfile] = useState<UserProfileSummary | null>(null);
+  const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
+  const [bookingDate, setBookingDate] = useState("");
+  const [bookingTime, setBookingTime] = useState("");
+  const [bookingDurationMinutes, setBookingDurationMinutes] = useState(60);
+  const [bookingSubmitting, setBookingSubmitting] = useState(false);
+  const [showChatMobile, setShowChatMobile] = useState(Boolean(initialReceiverId));
+  const { speak, stop } = useScreenReader();
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const receiverIdRef = useRef(initialReceiverId);
+  const conversationIdRef = useRef<string | null>(null);
+
+  const scrollToBottom = () => {
+    window.setTimeout(() => {
+      if (scrollRef.current) {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      }
+    }, 0);
+  };
+
+  useEffect(() => {
+    receiverIdRef.current = receiverId;
+  }, [receiverId]);
+
+  useEffect(() => {
+    conversationIdRef.current = conversationId;
+  }, [conversationId]);
+
+  const isUuid = (value: string) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim());
+
+  /* ---------------- CONVERSATIONS ---------------- */
+
+  const loadConversations = async () => {
+    try {
+      const response = await fetch("/api/chat/conversations");
+      if (!response.ok) throw new Error();
+
+      const list = (await response.json()) as ConversationSummary[];
+
+      const enriched = await Promise.all(
+        list.map(async (conversation) => {
+          const partnerId =
+            conversation.other_participant_id ||
+            conversation.participant_ids.find((id) => id !== meId) ||
+            "";
+
+          const profile = partnerId
+            ? await fetchApi<UserProfileSummary>(`/users/profiles/${partnerId}`).catch(() => null)
+            : null;
+
+          return {
+            ...conversation,
+            partnerName: profile?.display_name || `Chat ${partnerId.slice(0, 8)}`,
+            partnerAvatar: profile?.avatar_url,
+          };
+        })
+      );
+
+      setConversations(enriched);
+    } catch {
+      setConversations([]);
+    }
+  };
+
+  /* ---------------- CHAT HISTORY ---------------- */
+
+  const loadConversationMessages = async (convId: string) => {
+    try {
+      const response = await fetch(`/api/chat/messages/${convId}`);
+      if (!response.ok) return;
+
+      const history = await response.json();
+
+      setMessages(
+        history.map((msg: any) => ({
+          id: String(msg.id),
+          conversation_id: convId,
+          sender_id: String(msg.sender_id),
+          receiver_id: receiverIdRef.current,
+          content: msg.content,
+          timestamp: msg.created_at,
+          is_read: msg.is_read,
+        }))
+      );
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const loadReceiverProfile = async (participantId: string) => {
+    if (!participantId || !isUuid(participantId)) {
+      setReceiverProfile(null);
+      return;
+    }
+
+    const profile = await fetchApi<UserProfileSummary>(`/users/profiles/${participantId}`).catch(() => null);
+    setReceiverProfile(profile);
+  };
+
+  const ensureConversation = async (participantId: string) => {
+    try {
+      const response = await fetch("/api/chat/conversation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ participant_id: participantId }),
+      });
+
+      const data = await response.json();
+
+      setConversationId(data.id);
+      await loadConversationMessages(data.id);
+    } catch {
+      setConversationId(null);
+    }
+  };
+
+  const openConversation = async (participantId: string) => {
+    if (!participantId || !isUuid(participantId)) return;
+
+    setReceiverId(participantId);
+    setShowChatMobile(true);
+    setReceiverProfile(null);
+    await loadReceiverProfile(participantId);
+    await ensureConversation(participantId);
+  };
+
+  /* ---------------- SESSION ---------------- */
+
+  useEffect(() => {
+    fetch("/api/session")
+      .then((r) => r.json())
+      .then((user: MyUserProfile) => {
+        setMeId(user.user_id);
+        setMeDisplayName(user.display_name || "Tú");
+        setMeAvatar(user.avatar_url);
+      })
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (meId) loadConversations();
+  }, [meId]);
+
+  useEffect(() => {
+    if (!meId || !receiverId || !isUuid(receiverId)) {
+      return;
+    }
+
+    void openConversation(receiverId);
+  }, [meId, receiverId]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, conversationId]);
+
+  useEffect(() => {
+    if (!meId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const connectWebSocket = async () => {
+      try {
+        const tokenResponse = await fetch("/api/auth/ws-token");
+        if (!tokenResponse.ok) {
+          const errBody = await tokenResponse.json().catch(() => ({}));
+          const msg = errBody?.error || `WS token fetch failed (${tokenResponse.status})`;
+          toast.error(msg);
+          console.error("WS token fetch failed:", tokenResponse.status, errBody);
+          throw new Error(msg);
+        }
+
+        const { token } = await tokenResponse.json();
+        if (cancelled) return;
+
+        // Derivamos dinámicamente el puerto/host del WebSocket usando NEXT_PUBLIC_API_URL o la ubicación actual
+        const configuredWs = process.env.NEXT_PUBLIC_WS_URL?.replace(/\/+$/, "");
+        const isConfiguredValid = Boolean(configuredWs) && !/^wss?:\/\/(localhost|127\.0\.0\.1)(:8000)?\/?$/.test(configuredWs as string);
+
+        let wsBaseUrl: string;
+
+        if (isConfiguredValid) {
+          wsBaseUrl = `${configuredWs}/chat/ws`;
+        } else {
+          const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+          if (rawApiUrl) {
+            const wsScheme = rawApiUrl.startsWith("https") ? "wss:" : "ws:";
+            const host = rawApiUrl.replace(/^https?:\/\//, "").replace(/\/+$/, "");
+            wsBaseUrl = `${wsScheme}//${host}/chat/ws`;
+          } else {
+            const wsScheme = window.location.protocol === "https:" ? "wss:" : "ws:";
+            wsBaseUrl = `${wsScheme}//${window.location.host}/chat/ws`;
+          }
+        }
+
+        const ws = new WebSocket(`${wsBaseUrl}/${meId}?token=${token}`);
+
+        ws.onopen = () => {
+          setIsConnected(true);
+          console.info("WS open for meId:", meId);
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            const messageContent = data.content || "";
+            const senderId = String(data.sender_id || "");
+
+            setMessages((prev: Message[]) => [
+              ...prev,
+              {
+                id: crypto.randomUUID(),
+                conversation_id: data.conversation_id || conversationIdRef.current || undefined,
+                sender_id: String(data.sender_id || ""),
+                receiver_id: receiverIdRef.current,
+                content: data.content || "",
+                timestamp: new Date().toISOString(),
+                is_read: false,
+              },
+            ]);
+            if (senderId !== meId && messageContent) {
+              speak(`Nuevo mensaje de ${resolvedName}: ${messageContent}`);
+            }
+          } catch (error) {
+            console.error("Error parseando mensaje WS:", error);
+          }
+        };
+
+        ws.onclose = (ev) => {
+          setIsConnected(false);
+          console.warn("WS closed", ev);
+          toast.error("Conexión de chat cerrada.");
+        };
+
+        ws.onerror = (ev) => {
+          setIsConnected(false);
+          console.error("WS error", ev);
+          toast.error("Error en la conexión de chat.");
+        };
+
+        wsRef.current = ws;
+        setSocket(ws);
+      } catch (error) {
+        console.error("Error conectando WebSocket:", error);
+        setIsConnected(false);
+      }
+    };
+
+    void connectWebSocket();
+
+    return () => {
+      cancelled = true;
+      wsRef.current?.close();
+      wsRef.current = null;
+      setSocket(null);
+      setIsConnected(false);
+    };
+  }, [meId]);
+
+  /* ---------------- UI HELPERS ---------------- */
+
+  const activeConversation = useMemo<ConversationItem | null>(
+    () =>
+      conversations.find((conversation: ConversationItem) => {
+        const partnerId =
+          conversation.other_participant_id ||
+          conversation.participant_ids.find((id) => id !== meId) ||
+          "";
+        return partnerId === receiverId;
+      }) || null,
+    [conversations, receiverId, meId]
+  );
+
+  const resolvedName =
+    receiverProfile?.display_name ||
+    activeConversation?.partnerName ||
+    (receiverId ? `Chat ${receiverId.slice(0, 8)}` : "Selecciona un chat");
+
+  const resolvedAvatar =
+    receiverProfile?.avatar_url ||
+    activeConversation?.partnerAvatar ||
+    `https://api.dicebear.com/7.x/avataaars/svg?seed=${receiverId || "empty"}`;
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  /* ---------------- UI ---------------- */
+
+  const handleSendMessage = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!newMessage.trim()) {
+      return;
+    }
+
+    const activeSocket = wsRef.current;
+    const socketIsOpen = activeSocket?.readyState === WebSocket.OPEN;
+
+    if (!activeSocket || !socketIsOpen || !meId || !conversationIdRef.current) {
+      toast.error("No estás conectado al servidor de chat.");
+      return;
+    }
+
+    const payload = {
+      conversation_id: conversationIdRef.current,
+      receiver_id: receiverIdRef.current,
+      content: newMessage,
+    };
+
+    activeSocket.send(JSON.stringify(payload));
+    window.dispatchEvent(new Event("nearyx:network-updated"));
+
+    const optimisticMessage: Message = {
+      id: Math.random().toString(),
+      conversation_id: conversationIdRef.current,
+      sender_id: meId || "me",
+      receiver_id: receiverIdRef.current,
+      content: newMessage,
+      timestamp: new Date().toISOString(),
+      is_read: false,
+    };
+
+    setMessages((prev: Message[]) => [...prev, optimisticMessage]);
+    setNewMessage("");
+    void loadConversations();
+
+    setTimeout(() => {
+      if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }, 100);
+  };
+
+  const openBookingDialog = () => {
+    const now = new Date();
+    now.setHours(now.getHours() + 1);
+
+    const nextDate = now.toISOString().slice(0, 10);
+    const nextTime = now.toTimeString().slice(0, 5);
+
+    setBookingDate(nextDate);
+    setBookingTime(nextTime);
+    setBookingDurationMinutes(60);
+    setBookingDialogOpen(true);
+  };
+
+  const handleCreateBooking = async () => {
+    if (!receiverId || !isUuid(receiverId) || !bookingDate || !bookingTime || bookingSubmitting) {
+      return;
+    }
+
+    const startDateTime = new Date(`${bookingDate}T${bookingTime}:00`);
+    if (Number.isNaN(startDateTime.getTime())) {
+      toast.error("Selecciona una fecha y hora válidas.");
+      return;
+    }
+
+    const endDateTime = new Date(startDateTime.getTime() + Math.max(30, bookingDurationMinutes) * 60 * 1000);
+
+    setBookingSubmitting(true);
+    try {
+      const response = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tutor_id: receiverId,
+          scheduled_start: startDateTime.toISOString(),
+          scheduled_end: endDateTime.toISOString(),
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || data.detail || "No se pudo crear la reserva");
+      }
+
+      toast.success("Reserva creada");
+      speak(`Reserva con ${resolvedName} creada correctamente.`);
+      setBookingDialogOpen(false);
+      router.push("/bookings");
+    } catch (error) {
+      const err = error as Error;
+      toast.error(err.message || "No se pudo crear la reserva");
+      speak(
+        err.message
+          ? `No se pudo crear la reserva. ${err.message}`
+          : "No se pudo crear la reserva."
+      );
+    } finally {
+      setBookingSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="flex h-full min-h-0 w-full overflow-hidden bg-[#ffffff]">
+      <div className="flex h-full min-h-0 w-full gap-4 p-3 lg:p-4">
+        <aside className={`min-h-0 w-full flex-col overflow-hidden lg:flex lg:w-[360px] lg:shrink-0 ${showChatMobile ? "hidden" : "flex"} ${appPanelSoftClass}`}>
+          <div
+            tabIndex={0}
+            onFocus={() =>
+              speak(
+                `Sección Mensajes. Conversaciones. ${conversations.length
+                } conversaciones disponibles. Estado de conexión: ${isConnected ? "en línea" : "desconectado"
+                }.`
+              )
+            }
+            onBlur={stop}
+            className="flex-shrink-0 rounded-md border-b border-border px-5 py-4 focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.26em] text-muted-foreground">
+                  Mensajes
+                </p>
+                <h2 className="mt-2 text-[1.05rem] font-semibold text-foreground">
+                  Conversaciones
+                </h2>
+              </div>
+
+              <span
+                className={`rounded-full px-3 py-1 text-[11px] font-medium ${isConnected
+                  ? "bg-semantic-success/10 text-semantic-success"
+                  : "bg-muted text-muted-foreground"
+                  }`}
+              >
+                {isConnected ? "En línea" : "Desconectado"}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex-shrink-0 border-b border-border px-4 py-3">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar conversaciones..."
+                aria-label="Buscar conversaciones"
+                onFocus={() => speak("Campo de búsqueda. Buscar conversaciones.")}
+                onBlur={stop}
+                className="h-11 rounded-xl border-border bg-[#ffffff] pl-10 text-foreground placeholder:text-muted-foreground focus-visible:ring-primary/20"
+              />
+            </div>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <ScrollArea className="h-full">
+              <div className="space-y-2 p-2.5">
+                {conversations.length === 0 ? (
+                  <div
+                    tabIndex={0}
+                    onFocus={() => speak("No hay conversaciones aún.")}
+                    onBlur={stop}
+                    aria-label="No hay conversaciones aún"
+                    className="flex h-40 items-center justify-center rounded-xl border border-dashed border-border bg-[#ffffff] px-6 text-center focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <div className="space-y-2">
+                      <AlertCircle className="mx-auto h-5 w-5 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">No hay conversaciones aún</p>
+                    </div>
+                  </div>
+                ) : (
+                  conversations.map((c: ConversationItem) => {
+                    const partnerId = c.other_participant_id || c.participant_ids.find((id) => id !== meId) || "";
+                    const isActive = partnerId === receiverId;
+
+                    return (
+                      <button
+                        key={c.id}
+                        onClick={() => openConversation(partnerId)}
+                        onFocus={() =>
+                          speak(
+                            `Conversación con ${c.partnerName}. ${c.last_message
+                              ? `Último mensaje: ${c.last_message}.`
+                              : "Sin mensajes."
+                            }`
+                          )
+                        }
+                        onBlur={stop}
+                        aria-label={`Conversación con ${c.partnerName}. ${c.last_message
+                          ? `Último mensaje: ${c.last_message}.`
+                          : "Sin mensajes."
+                          }`}
+                        className={`group w-full rounded-xl border px-4 py-3 text-left transition-all duration-200 ${isActive
+                          ? "border-[#95C9FC] bg-[#C6E2FE] shadow-sm"
+                          : "border-transparent hover:border-border hover:bg-[#F8FBFF]"
+                          }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <UserAvatar name={c.partnerName} size="mlg" avatarUrl={c.partnerAvatar} />
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="truncate text-sm font-semibold text-foreground">
+                                  {c.partnerName}
+                                </div>
+                                <div className="mt-1 truncate text-xs text-muted-foreground">
+                                  {c.last_message || "Sin mensajes"}
+                                </div>
+                              </div>
+
+                              {c.last_message_at && (
+                                <div className="flex-shrink-0 text-[11px] text-muted-foreground">
+                                  {new Date(c.last_message_at).toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+        </aside>
+
+        <section className={`min-w-0 flex-1 flex-col overflow-hidden lg:flex ${showChatMobile ? "flex" : "hidden"} ${appPanelClass}`}>
+          <div
+            tabIndex={0}
+            onFocus={() =>
+              speak(
+                receiverId && isUuid(receiverId)
+                  ? `Chat con ${resolvedName}. ${conversationId ? "En línea." : "Selecciona un chat."}`
+                  : "No hay ninguna conversación seleccionada."
+              )
+            }
+            onBlur={stop}
+            className="flex-shrink-0 rounded-md border-b border-border px-3 py-3 focus:outline-none focus:ring-2 focus:ring-primary md:px-5 md:py-4"
+          >
+            <div className="flex items-center justify-between gap-2 md:gap-4">
+              <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 lg:hidden"
+                  aria-label="Volver a conversaciones"
+                  onClick={() => setShowChatMobile(false)}
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+
+                <div className="shrink-0">
+                  <UserAvatar name={resolvedName} size="mlg" avatarUrl={resolvedAvatar} />
+                </div>
+
+                <div className="min-w-0">
+                  <h3 className="truncate text-sm font-semibold text-foreground">{resolvedName}</h3>
+                  <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="h-2 w-2 shrink-0 rounded-full bg-semantic-success" />
+                    <span className="truncate">{conversationId ? "En línea" : "Selecciona un chat"}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex shrink-0 items-center gap-1.5 md:gap-2">
+                {receiverId && isUuid(receiverId) ? (
+                  <>
+                    <Link
+                      href={`/profile/${receiverId}`}
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#2563EB]/20 bg-[#EEF6FF] text-sm font-semibold text-[#2563EB] transition-colors hover:bg-[#E0EFFF] xl:w-auto xl:px-4"
+                      aria-label={`Ver perfil de ${resolvedName}`}
+                      onFocus={() => speak(`Botón. Ver perfil de ${resolvedName}.`)}
+                      onBlur={stop}
+                    >
+                      <UserRound className="h-4 w-4 xl:hidden" aria-hidden />
+                      <span className="hidden xl:inline">Ver perfil</span>
+                    </Link>
+                    <Button
+                      type="button"
+                      onClick={openBookingDialog}
+                      aria-label={`Reservar una sesión con ${resolvedName}`}
+                      onFocus={() => speak(`Botón. Reservar una sesión con ${resolvedName}.`)}
+                      onBlur={stop}
+                      className="h-10 w-10 rounded-full bg-[#95C9FC] px-0 text-sm font-semibold text-[#10314F] hover:bg-[#7FB8F5] xl:w-auto xl:px-4"
+                    >
+                      <CalendarDays className="h-4 w-4 xl:mr-2" />
+                      <span className="hidden xl:inline">Reservar</span>
+                    </Button>
+                  </>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-hidden px-4 py-4 lg:px-5">
+            <ScrollArea ref={scrollRef} className="h-full pr-2">
+              <div className="flex flex-col gap-4">
+                {messages.length === 0 ? (
+                  <div
+                    tabIndex={0}
+                    onFocus={() => speak("No hay mensajes. Inicia una conversación.")}
+                    onBlur={stop}
+                    aria-label="No hay mensajes. Inicia una conversación."
+                    className="flex min-h-[24rem] items-center justify-center rounded-xl border border-dashed border-border bg-[#F8FBFF] px-6 text-center focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <p className="text-sm text-muted-foreground">Inicia una conversación</p>
+                  </div>
+                ) : (
+                  messages.map((m: Message) => {
+                    const isMe = m.sender_id === meId;
+                    const time = new Date(m.timestamp).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    });
+
+                    return (
+                      <div
+                        key={m.id}
+                        tabIndex={0}
+                        onFocus={() =>
+                          speak(
+                            `${isMe ? "Tú" : resolvedName} dijo: ${m.content}. Hora: ${time}.`
+                          )
+                        }
+                        onBlur={stop}
+                        aria-label={`${isMe ? "Tú" : resolvedName} dijo: ${m.content}. Hora: ${time}.`}
+                        className={`flex items-end gap-3 rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${isMe ? "flex-row-reverse" : ""
+                          }`}
+                      >
+                        {!isMe && (
+                          <UserAvatar name={resolvedName} size="sm" avatarUrl={resolvedAvatar} />
+                        )}
+
+                        <div className={`flex max-w-[min(34rem,78%)] flex-col ${isMe ? "items-end" : "items-start"}`}>
+                          <div
+                            className={`rounded-2xl border px-4 py-3 shadow-sm ${isMe
+                              ? "rounded-br-md border-[#95C9FC] bg-[#95C9FC] text-[#10314f]"
+                              : "rounded-bl-md border-border bg-[#F8FBFF] text-foreground"
+                              }`}
+                          >
+                            <p className="break-words text-sm leading-6">{m.content}</p>
+                          </div>
+                          <span className="mt-1.5 text-[11px] text-muted-foreground">
+                            {time}
+                          </span>
+                        </div>
+
+                        {isMe && (
+                          <UserAvatar name={meDisplayName} size="sm" avatarUrl={meAvatar} />
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+
+          <div className="flex-shrink-0 border-t border-border px-4 py-4 lg:px-5">
+            <form className="flex items-end gap-3" onSubmit={handleSendMessage}>
+              <Input
+                value={newMessage}
+                onChange={(event) => setNewMessage(event.target.value)}
+                onFocus={() => speak("Campo de mensaje. Escribe un mensaje.")}
+                onBlur={stop}
+                aria-label="Escribe un mensaje"
+                className="h-12 rounded-xl border-border bg-[#F8FBFF] px-4 text-foreground placeholder:text-muted-foreground focus-visible:ring-primary/20"
+              />
+              <Button
+                type="submit"
+                aria-label="Enviar mensaje"
+                onFocus={() => speak("Botón. Enviar mensaje.")}
+                onBlur={stop}
+                className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-[#CCFBF1] text-[#0F766E] transition-all hover:bg-[#B2F5EA]"
+              >
+                <Send
+                  aria-hidden="true"
+                  className="h-4 w-4"
+                />
+              </Button>
+            </form>
+          </div>
+        </section>
+      </div>
+
+      <Dialog open={bookingDialogOpen} onOpenChange={setBookingDialogOpen}>
+        <DialogContent className="w-[min(92vw,460px)]">
+          <DialogHeader>
+            <DialogTitle
+              onFocus={() =>
+                speak(`Crear reserva con ${resolvedName}.`)
+              }
+              tabIndex={0}
+            >
+              Crear reserva
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-2">
+              <label
+                className="text-sm font-medium text-foreground"
+                htmlFor="booking-date"
+              >
+                Fecha
+              </label>
+
+              <Input
+                id="booking-date"
+                type="date"
+                aria-label="Fecha de la reserva"
+                value={bookingDate}
+                onChange={(event) => setBookingDate(event.target.value)}
+                onFocus={() =>
+                  speak(
+                    bookingDate
+                      ? `Fecha de la reserva: ${bookingDate}.`
+                      : "Selecciona la fecha de la reserva."
+                  )
+                }
+                onBlur={stop}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <label className="text-sm font-medium text-foreground" htmlFor="booking-time">Hora</label>
+              <Input
+                id="booking-time"
+                type="time"
+                aria-label="Hora de la reserva"
+                value={bookingTime}
+                onChange={(event) => setBookingTime(event.target.value)}
+                onFocus={() =>
+                  speak(
+                    bookingTime
+                      ? `Hora de la reserva: ${bookingTime}.`
+                      : "Selecciona la hora de la reserva."
+                  )
+                }
+                onBlur={stop}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <label className="text-sm font-medium text-foreground" htmlFor="booking-duration">Duración en minutos</label>
+              <Input
+                id="booking-duration"
+                type="number"
+                min={30}
+                step={15}
+                aria-label="Duración de la reserva en minutos"
+                value={bookingDurationMinutes}
+                onChange={(event) =>
+                  setBookingDurationMinutes(Number(event.target.value) || 60)
+                }
+                onFocus={() =>
+                  speak(
+                    `Duración de la reserva: ${bookingDurationMinutes} minutos.`
+                  )
+                }
+                onBlur={stop}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setBookingDialogOpen(false)}
+              onFocus={() => speak("Botón. Cancelar reserva.")}
+              onBlur={stop}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleCreateBooking}
+              disabled={bookingSubmitting}
+              onFocus={() =>
+                speak(
+                  bookingSubmitting
+                    ? "Creando reserva."
+                    : "Botón. Confirmar reserva."
+                )
+              }
+              onBlur={stop}
+            >
+              {bookingSubmitting ? "Creando..." : "Confirmar reserva"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+/* ---------------- WRAPPER ---------------- */
+
+export default function MessagesPage() {
+  return (
+    <Suspense fallback={<Loader2 className="h-8 w-8 animate-spin" />}>
+      <MessagesPageContent />
+    </Suspense>
+  );
+}
+</file>
+
 <file path="frontend/components/map/MapboxMap.tsx">
 'use client';
 
@@ -23923,134 +24010,6 @@ function TutorMiniCard({ tutor }: TutorMiniCardProps) {
 }
 </file>
 
-<file path="docker-compose.yml">
-services:
-
-  # ─── INFRAESTRUCTURA ────────────────────────────────────────────────────────
-
-  redis:
-    image: redis:7-alpine
-    container_name: ttp-redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-
-  # ─── SERVICIOS DE DOMINIO ───────────────────────────────────────────────────
-
-
-  tutor-service:
-    build:
-      context: ./services/tutor-service
-      dockerfile: Dockerfile
-    container_name: ttp-tutors
-    restart: unless-stopped
-    ports:
-      - "8003:8003"
-    env_file: .env
-    environment:
-      - PORT=8003
-      - SEMANTIC_ABSOLUTE_CEILING=${SEMANTIC_ABSOLUTE_CEILING}
-      - SEMANTIC_RELATIVE_MARGIN=${SEMANTIC_RELATIVE_MARGIN}
-      - SEMANTIC_MIN_SEPARATION=${SEMANTIC_MIN_SEPARATION}
-    volumes:
-      # Embedding model (~470 MB, downloaded on first start); keeps it across rebuilds
-      - tutor_model_cache:/app/.cache
-
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-
-
-  chat-service:
-    build:
-      context: ./services/chat-service
-      dockerfile: Dockerfile
-    container_name: ttp-chat
-    restart: unless-stopped
-    ports:
-      - "8005:8005"
-    env_file: .env
-    environment:
-      - PORT=8005
-
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-
-  # ─── API GATEWAY ────────────────────────────────────────────────────────────
-
-  gateway:
-    build:
-      context: ./gateway
-      dockerfile: Dockerfile
-    container_name: ttp-gateway
-    restart: unless-stopped
-    ports:
-      - "8000:8000"
-    env_file: .env
-    environment:
-      - PORT=8000
-    depends_on:
-      redis:
-        condition: service_healthy
-      tutor-service:
-        condition: service_healthy
-      chat-service:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # ─── FRONTEND ───────────────────────────────────────────────────────────────
-  # El front de producción está desplegado en Render, así que NO arranca por defecto.
-  # Para correrlo en local:  docker compose --profile frontend up -d --build
-
-  frontend:
-    profiles: ["frontend"]
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_MAPBOX_TOKEN: ${MAPBOX_PUBLIC_TOKEN:-${NEXT_PUBLIC_MAPBOX_TOKEN}}
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
-        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-ws://localhost:8000}
-        NEXT_PUBLIC_FORCE_MEDELLIN: ${NEXT_PUBLIC_FORCE_MEDELLIN:-0}
-    container_name: ttp-frontend
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    # Solo env_file: evita que `environment:` vacíe variables si falla la sustitución ${...}
-    env_file:
-      - .env
-    depends_on:
-      gateway:
-        condition: service_healthy
-
-volumes:
-  redis_data:
-  #media_files:
-  tutor_model_cache:
-
-networks:
-  default:
-    name: ttp-network
-</file>
-
 <file path="frontend/app/(main)/profile/me/page.tsx">
 import Link from "next/link";
 
@@ -24312,6 +24271,134 @@ export default async function MyProfilePage() {
     </div>
   );
 }
+</file>
+
+<file path="docker-compose.yml">
+services:
+
+  # ─── INFRAESTRUCTURA ────────────────────────────────────────────────────────
+
+  redis:
+    image: redis:7-alpine
+    container_name: ttp-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ─── SERVICIOS DE DOMINIO ───────────────────────────────────────────────────
+
+
+  tutor-service:
+    build:
+      context: ./services/tutor-service
+      dockerfile: Dockerfile
+    container_name: ttp-tutors
+    restart: unless-stopped
+    ports:
+      - "8003:8003"
+    env_file: .env
+    environment:
+      - PORT=8003
+      - SEMANTIC_ABSOLUTE_CEILING=${SEMANTIC_ABSOLUTE_CEILING}
+      - SEMANTIC_RELATIVE_MARGIN=${SEMANTIC_RELATIVE_MARGIN}
+      - SEMANTIC_MIN_SEPARATION=${SEMANTIC_MIN_SEPARATION}
+    volumes:
+      # Embedding model (~470 MB, downloaded on first start); keeps it across rebuilds
+      - tutor_model_cache:/app/.cache
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+
+  chat-service:
+    build:
+      context: ./services/chat-service
+      dockerfile: Dockerfile
+    container_name: ttp-chat
+    restart: unless-stopped
+    ports:
+      - "8005:8005"
+    env_file: .env
+    environment:
+      - PORT=8005
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  # ─── API GATEWAY ────────────────────────────────────────────────────────────
+
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    container_name: ttp-gateway
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      - PORT=8000
+    depends_on:
+      redis:
+        condition: service_healthy
+      tutor-service:
+        condition: service_healthy
+      chat-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── FRONTEND ───────────────────────────────────────────────────────────────
+  # El front de producción está desplegado en Render, así que NO arranca por defecto.
+  # Para correrlo en local:  docker compose --profile frontend up -d --build
+
+  frontend:
+    profiles: ["frontend"]
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_MAPBOX_TOKEN: ${MAPBOX_PUBLIC_TOKEN:-${NEXT_PUBLIC_MAPBOX_TOKEN}}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-ws://localhost:8000}
+        NEXT_PUBLIC_FORCE_MEDELLIN: ${NEXT_PUBLIC_FORCE_MEDELLIN:-0}
+    container_name: ttp-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    # Solo env_file: evita que `environment:` vacíe variables si falla la sustitución ${...}
+    env_file:
+      - .env
+    depends_on:
+      gateway:
+        condition: service_healthy
+
+volumes:
+  redis_data:
+  #media_files:
+  tutor_model_cache:
+
+networks:
+  default:
+    name: ttp-network
 </file>
 
 <file path="frontend/app/(main)/explore/explore-client.tsx">

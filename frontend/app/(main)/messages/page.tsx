@@ -249,13 +249,26 @@ function MessagesPageContent() {
         const { token } = await tokenResponse.json();
         if (cancelled) return;
 
-        // En producción NEXT_PUBLIC_WS_URL apunta al host que atiende el WebSocket (sin ruta), p. ej.
-        // wss://mi-gateway.onrender.com. En local (sin definir o localhost) se usa <hostname>:8000 como antes.
+        // Derivamos dinámicamente el puerto/host del WebSocket usando NEXT_PUBLIC_API_URL o la ubicación actual
         const configuredWs = process.env.NEXT_PUBLIC_WS_URL?.replace(/\/+$/, "");
-        const useConfiguredWs = Boolean(configuredWs) && !/^wss?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(configuredWs as string);
-        const wsBaseUrl = useConfiguredWs
-          ? `${configuredWs}/chat/ws`
-          : `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.hostname}:8000/chat/ws`;
+        const isConfiguredValid = Boolean(configuredWs) && !/^wss?:\/\/(localhost|127\.0\.0\.1)(:8000)?\/?$/.test(configuredWs as string);
+
+        let wsBaseUrl: string;
+
+        if (isConfiguredValid) {
+          wsBaseUrl = `${configuredWs}/chat/ws`;
+        } else {
+          const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+          if (rawApiUrl) {
+            const wsScheme = rawApiUrl.startsWith("https") ? "wss:" : "ws:";
+            const host = rawApiUrl.replace(/^https?:\/\//, "").replace(/\/+$/, "");
+            wsBaseUrl = `${wsScheme}//${host}/chat/ws`;
+          } else {
+            const wsScheme = window.location.protocol === "https:" ? "wss:" : "ws:";
+            wsBaseUrl = `${wsScheme}//${window.location.host}/chat/ws`;
+          }
+        }
+
         const ws = new WebSocket(`${wsBaseUrl}/${meId}?token=${token}`);
 
         ws.onopen = () => {
@@ -745,9 +758,7 @@ function MessagesPageContent() {
       </div>
 
       <Dialog open={bookingDialogOpen} onOpenChange={setBookingDialogOpen}>
-        <DialogContent className="w-[min(92vw,460px)]
-        "
-        >
+        <DialogContent className="w-[min(92vw,460px)]">
           <DialogHeader>
             <DialogTitle
               onFocus={() =>
