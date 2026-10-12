@@ -1,0 +1,19 @@
+diff a/DEPLOY_RENDER.md b/DEPLOY_RENDER.md	(rejected hunks)
+@@ -82,4 +82,15 @@ Render lo muestra en *Events*. Sube **solo ese servicio** a un plan de pago con
+ 
+ ## Limitaciones conocidas
+ - Los servicios de Render son **públicos** (sin red privada en free). Cada uno valida el JWT; antes de producción conviene una clave interna compartida gateway → servicios.
+-- Primer request tras dormir: ~1 min por servicio. Usa `/wake` antes de demostrar.
+\ No newline at end of file
++- Primer request tras dormir: ~1 min por servicio. Usa `/wake` antes de demostrar.
++
++## Probar en local otra persona (sin ngrok y sin tu cuenta)
++**No compartas tu contraseña ni tu authtoken de ngrok:** dan control de tu cuenta. Además, el front de Render apunta solo a TU dominio de ngrok, así que el túnel de otra persona no serviría para él. Un colaborador no necesita ngrok: levanta todo en su PC y usa el front local.
++
++1. Docker Desktop y `git clone` del repo.
++2. Copiar `.env.example` a `.env` y pedirte, por un canal seguro (gestor de contraseñas), los valores de `DATABASE_URL` y `JWT_SECRET` (los mismos que usan los servicios de Render) y el token público de Mapbox. `DATABASE_URL` da acceso total a la base de datos: dáselo solo a gente de confianza y rota la contraseña cuando termine.
++3. `EMBEDDING_DTYPE` igual al de los embeddings guardados (hoy `q8`); si no, la búsqueda semántica se desajusta.
++4. `docker compose up -d --build` (gateway, tutor, chat y redis) y `docker compose --profile frontend up -d --build` (front en http://localhost:3000). La primera vez el tutor descarga el modelo de embeddings.
++5. Despertar los servicios de Render: `http://localhost:8000/wake` (con `?key=` si hay `WAKE_KEY`).
++6. Con el front local en `http://`, `COOKIE_SECURE=false` (ya viene en el ejemplo); si no, el login falla en Safari o por IP de red.
++Si además quiere probar contra el front de Render, solo puede haber **un** túnel apuntando a ese dominio: coordinen quién lo tiene encendido.

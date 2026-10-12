@@ -99,7 +99,7 @@ export class AuthService {
     if (!payload || !payload.sub) throw new InvalidTokenError();
 
     const user = await this.userRepository.findById(payload.sub);
-    if (!user || !user.isActive) throw new InactiveUserError();
+    if (!user || user.isActive === false) throw new InactiveUserError(); // NULL (filas antiguas) cuenta como activo
     return user;
   }
 

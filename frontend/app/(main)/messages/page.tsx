@@ -249,7 +249,13 @@ function MessagesPageContent() {
         const { token } = await tokenResponse.json();
         if (cancelled) return;
 
-        const wsBaseUrl = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.hostname}:8000/chat/ws`;
+        // En producción NEXT_PUBLIC_WS_URL apunta al host que atiende el WebSocket (sin ruta), p. ej.
+        // wss://mi-gateway.onrender.com. En local (sin definir o localhost) se usa <hostname>:8000 como antes.
+        const configuredWs = process.env.NEXT_PUBLIC_WS_URL?.replace(/\/+$/, "");
+        const useConfiguredWs = Boolean(configuredWs) && !/^wss?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(configuredWs as string);
+        const wsBaseUrl = useConfiguredWs
+          ? `${configuredWs}/chat/ws`
+          : `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.hostname}:8000/chat/ws`;
         const ws = new WebSocket(`${wsBaseUrl}/${meId}?token=${token}`);
 
         ws.onopen = () => {

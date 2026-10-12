@@ -33,8 +33,8 @@ export class UserRepository {
   async create({ email, passwordHash, role }) {
     try {
       const { rows } = await this.pool.query(
-        `INSERT INTO authe.users (id, email, password_hash, role)
-         VALUES ($1, $2, $3, $4) RETURNING *`,
+        `INSERT INTO authe.users (id, email, password_hash, role, is_active)
+         VALUES ($1, $2, $3, $4, TRUE) RETURNING *`,
         [randomUUID(), email, passwordHash, role],
       );
       return toEntity(rows[0]);

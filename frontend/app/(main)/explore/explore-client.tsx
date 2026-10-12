@@ -247,7 +247,7 @@ export default function ExploreClient({ mapboxAccessToken = "" }: ExploreClientP
                   }
                   onBlur={stop}
                 >
-                  <div className="mt-4 flex items-start gap-3 max-h-60 overflow-auto pr-1 md:max-h-[calc(100vh-20rem)]">
+                  <div className="flex items-start gap-3">
                     <UserAvatar
                       name={tutor.display_name || tutor.full_name || "Experto"}
                       size="sm"
