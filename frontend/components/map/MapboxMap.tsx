@@ -38,8 +38,8 @@ interface MapboxMapProps {
   onTutorsFound?: (tutors: Tutor[], phase: 'searching' | 'found' | 'empty') => void;
 }
 
-const MAP_HEIGHT = 'calc(100vh - 10rem)';
-const MAP_MIN_HEIGHT = 480;
+const MAP_HEIGHT = '100%';
+const MAP_MIN_HEIGHT = 0;
 
 const RADII = [2, 5, 10, 20, 50];
 const FORCE_MEDELLIN = process.env.NEXT_PUBLIC_FORCE_MEDELLIN === '1';

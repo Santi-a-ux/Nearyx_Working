@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useScreenReader } from "@/components/providers/ScreenReaderContext"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface Booking {
   id: string;
@@ -42,8 +43,9 @@ const HIDDEN_STATUSES = new Set(["cancelled"]);
 export default function BookingsPage() {
   const [bookings, setBookings] = useState<BookingEnriched[]>([]);
   const [loading, setLoading] = useState(true);
+  const [bookingToCancel, setBookingToCancel] = useState<BookingEnriched | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
-    const { speak, stop } = useScreenReader();
+  const { speak, stop } = useScreenReader();
 
 
   const loadBookings = useCallback(async () => {
@@ -105,7 +107,7 @@ export default function BookingsPage() {
       minute: "2-digit",
     });
 
-  const handleCancelBooking = async (bookingId: string) => {
+  const handleCancelBooking = async (bookingId: string): Promise<boolean> => {
     setCancellingId(bookingId);
     speak("Eliminando la reserva elegida.");
     try {
@@ -123,12 +125,12 @@ export default function BookingsPage() {
       setBookings((prev) => prev.filter((b) => b.id !== bookingId));
       toast.success("Reserva eliminada");
       speak("Reserva eliminada correctamente.");
-
+      return true;
     } catch (err) {
       const e = err as Error;
       toast.error(e.message || "No se pudo eliminar la reserva");
       speak("No se pudo eliminar la reserva debido a un error.");
-
+      return false;
     } finally {
       setCancellingId(null);
     }
@@ -136,7 +138,7 @@ export default function BookingsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div 
+      <div
         onMouseEnter={() => speak("Sección Agenda. Mis reservas. Sesiones activas y confirmadas.")}
         onMouseLeave={stop}
         tabIndex={0}
@@ -154,7 +156,7 @@ export default function BookingsPage() {
           <CardContent className="p-6 text-sm text-muted-foreground">Cargando...</CardContent>
         </Card>
       ) : bookings.length === 0 ? (
-        <Card 
+        <Card
           className="border-dashed p-0 focus:outline-none focus:ring-2 focus:ring-primary"
           tabIndex={0}
           onMouseEnter={() => speak("No tienes reservas activas en tu agenda.")}
@@ -176,10 +178,10 @@ export default function BookingsPage() {
             const textoTarjeta = `Reserva con el ${b.otherRole}, ${b.otherName}. Estado: ${s.label}. Inicia el ${fmt(b.scheduled_start)}. Termina el ${fmt(b.scheduled_end)}.`;
 
             return (
-              <Card 
-                key={b.id} 
+              <Card
+                key={b.id}
                 className="p-0 shadow-sm focus:ring-2 focus:ring-primary focus:outline-none transition-shadow"
-                tabIndex={0} 
+                tabIndex={0}
                 onMouseEnter={() => speak(textoTarjeta)}
                 onFocus={() => speak(textoTarjeta)}
                 onMouseLeave={stop}
@@ -213,12 +215,12 @@ export default function BookingsPage() {
                         size="sm"
                         variant="outline"
                         disabled={isCancelling}
-                        onClick={(e) =>  {
+                        onClick={(e) => {
                           e.stopPropagation();
-                          handleCancelBooking(b.id);
+                          setBookingToCancel(b);
                         }}
                         onMouseEnter={(e) => {
-                          e.stopPropagation(); 
+                          e.stopPropagation();
                           speak(`Botón. Eliminar reserva con ${b.otherName}`);
                         }}
                         onFocus={(e) => {
@@ -236,6 +238,27 @@ export default function BookingsPage() {
           })}
         </div>
       )}
+      <ConfirmDialog
+        open={bookingToCancel !== null}
+        onOpenChange={(open) => {
+          if (!open) setBookingToCancel(null);
+        }}
+        title="¿Eliminar esta reserva?"
+        description={
+          bookingToCancel
+            ? `Se cancelará tu reserva con ${bookingToCancel.otherName} del ${fmt(bookingToCancel.scheduled_start)}. Esta acción no se puede deshacer.`
+            : ""
+        }
+        confirmLabel="Sí, eliminar"
+        cancelLabel="Conservar reserva"
+        destructive
+        loading={cancellingId !== null}
+        onConfirm={async () => {
+          if (!bookingToCancel) return;
+          const ok = await handleCancelBooking(bookingToCancel.id);
+          if (ok) setBookingToCancel(null);
+        }}
+      />
     </div>
   );
 }

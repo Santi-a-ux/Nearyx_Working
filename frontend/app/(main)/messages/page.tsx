@@ -305,7 +305,6 @@ function MessagesPageContent() {
         ws.onclose = (ev) => {
           setIsConnected(false);
           console.warn("WS closed", ev);
-          toast.error("Conexión de chat cerrada.");
         };
 
         ws.onerror = (ev) => {

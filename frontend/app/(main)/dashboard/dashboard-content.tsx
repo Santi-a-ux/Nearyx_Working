@@ -384,7 +384,7 @@ export function DashboardContent({ mapboxAccessToken = "" }: { mapboxAccessToken
                 onMouseLeave={stop}
                 onBlur={stop}
               >
-                ¿Qué quieres aprender o enseñar hoy?
+                ¿Qué quieres compartir hoy?
               </Button>
               <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
                 <span className="text-caption text-muted-foreground">· Publicará cerca de tu ubicación</span>

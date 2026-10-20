@@ -7,7 +7,7 @@ export default function Breadcrumb() {
   const segments = pathname.split("/").filter(Boolean);
   const labels: Record<string, string> = {
     dashboard: "Inicio",
-    explore: "Explorar",
+    explore: "Buscar Expertos",
     messages: "Mensajes",
     profile: "Perfil",
     tutor: "Experto",

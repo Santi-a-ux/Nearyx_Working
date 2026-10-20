@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, Home, Map, MessageCircle, ShieldCheck, UserCircle } from "lucide-react";
+import { CalendarDays, Home, MessageCircle, ShieldCheck, UserCircle, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
   { title: "Inicio", url: "/dashboard", icon: Home },
-  { title: "Explorar", url: "/explore", icon: Map },
-  { title: "Bookings", url: "/bookings", icon: CalendarDays },
+  { title: "Buscar Expertos", url: "/explore", icon: Search },
+  { title: "Reservas", url: "/bookings", icon: CalendarDays },
   { title: "Mensajes", url: "/messages", icon: MessageCircle },
   { title: "Perfil", url: "/profile/me", icon: UserCircle },
 ];
@@ -62,7 +62,7 @@ export function AppSidebar({ role }: { role?: string }) {
             )}
           >
             <item.icon className="h-5 w-5" />
-            <span className="truncate">{item.title}</span>
+            <span className="truncate">{item.title == "Buscar Expertos" ? "Buscar" : item.title}</span>
           </Link>
         ))}
       </nav>
